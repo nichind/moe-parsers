@@ -2,6 +2,7 @@ from aiohttp import ClientSession
 from bs4 import BeautifulSoup
 from asyncio import sleep
 from io import BytesIO
+from typing import Literal
 
 
 class Errors:
@@ -15,7 +16,7 @@ class Errors:
         pass
 
 
-class VideoStream(object):
+class Media(object):
     def __init__(self, url: str, **kwargs):
         self.url = url
         self.content = None
@@ -26,12 +27,12 @@ class VideoStream(object):
         return f"<{self.__class__.__name__} {', '.join([f'{k}={v}' for k, v in self.__dict__.items() if k != 'content'])}>"
 
 
-class MPDPlaylist(VideoStream):
+class MPDPlaylist(Media):
     def __init__(self, url: str, content: str, **kwargs):
         super().__init__(url, **kwargs)
         self.content = content
 
-    def to_buffer(self):
+    def buffer(self) -> BytesIO:
         buffer = BytesIO()
         buffer.write(self.content)
         buffer.seek(0)
@@ -46,12 +47,14 @@ class ParserParams:
         session: ClientSession = None,
         proxy: str = None,
         proxy_auth: str = None,
+        language: str = None,
     ):
         self.base_url = base_url
         self.headers = headers
         self.session = session
         self.proxy = proxy
         self.proxy_auth = proxy_auth
+        self.language = language
 
     def __repr__(self):
         return f'<{self.__class__.__name__} {", ".join([f"{k}={v}" for k, v in self.__dict__.items()])}>'
@@ -65,6 +68,7 @@ class Parser(object):
         self.session = None
         self.proxy = None
         self.proxy_auth = None
+        self.language = None
 
         try:
             import lxml
@@ -77,55 +81,69 @@ class Parser(object):
             setattr(self, kwarg, params.__dict__[kwarg])
 
         for kwarg in kwargs:
-            print(kwarg, kwargs[kwarg])
             setattr(self, kwarg, kwargs[kwarg])
 
     async def get(self, path: str, **kwargs) -> dict | str:
-        if "retries" in kwargs and kwargs["retries"] > 30:
+        return await self.request(path, "get", **kwargs)
+
+    async def post(self, path: str, **kwargs) -> dict | str:
+        return await self.request(path, "post", **kwargs)
+
+    async def request(
+        self, path: str, request_type: Literal["get", "post"] = "get", **kwargs
+    ) -> dict | str:
+        max_retries = 30
+        if kwargs.get("retries", 0) > max_retries:
             raise Errors.TooManyRetries
+
         session = (
             ClientSession(
-                headers=self.headers if "headers" not in kwargs else kwargs["headers"],
+                headers=kwargs.get("headers", self.headers),
                 proxy=self.proxy,
                 proxy_auth=self.proxy_auth,
             )
             if not self.session or self.session.closed
             else self.session
         )
+
         try:
-            url = (
-                ""
-                if self.base_url is None or path.startswith("http")
-                else self.base_url
-            ) + path
+            base_url = (
+                (
+                    ""
+                    if self.base_url is None or path.startswith("http")
+                    else self.base_url
+                )
+                if "base_url" not in kwargs
+                else kwargs["base_url"]
+            )
+            url = f"{base_url}{path}"
+
             async with session.get(
-                url,
-                params=kwargs["params"] if "params" in kwargs else None,
+                url, params=kwargs.get("params")
+            ) if request_type == "get" else session.post(
+                url, data=kwargs.get("data")
             ) as response:
                 if response.status == 429:
-                    await sleep(
-                        response.headers["Retry-After"]
-                        if "retry-after" in response.headers
-                        else 1
-                    )
-                    return await self.get(
+                    retry_after = response.headers.get("Retry-After", 1)
+                    await sleep(float(retry_after))
+                    return await self.request(
                         path,
-                        retries=1 if "retries" not in kwargs else kwargs["retries"] + 1,
+                        retries=kwargs.get("retries", 0) + 1,
                         **kwargs,
                     )
                 elif response.status == 404:
                     raise Errors.PageNotFound(f"Page not found: {url}")
+
                 try:
-                    if "text" in kwargs.keys() and kwargs["text"]:
-                        raise Exception
-                    response = await response.json()
+                    if kwargs.get("text", False):
+                        return await response.text()
+                    return await response.json()
                 except Exception:
-                    response = await response.text()
+                    return await response.text()
+
         finally:
-            if "close" in kwargs and kwargs["close"] is False:
-                return response
-            await session.close()
-        return response
+            if kwargs.get("close", True):
+                await session.close()
 
     async def soup(self, *args, **kwargs):
         return BeautifulSoup(
@@ -151,9 +169,46 @@ class Anime(object):
         self.parser = None
         self.translations = None
         self.data = None
+        self.language = None
+        self.status = self.Status.UNKNOWN
         self.args = args
         for kwarg in kwargs:
             setattr(self, kwarg, kwargs[kwarg])
 
+    class Episode(dict):
+        def __init__(self, **kwargs):
+            self.anime_id = None
+            self.episode_num = None
+            self.status = self.Status.UNKNOWN
+            self.title = None
+            self.date = None
+            for kwarg in kwargs:
+                setattr(self, kwarg, kwargs[kwarg])
+
+        class Status:
+            RELEASED = "Released"
+            DELAYED = "Delayed"
+            ANNOUNCED = "Announced"
+            UNKNOWN = "Unknown"
+
+        def __repr__(self):
+            return f"""<{self.__class__.__name__} {self.episode_num} "{self.title if self.title and len(self.title) < 50 else (self.title[:47] + '...' if self.title else '')}" ({self.status}{' '+str(self.date.strftime('%Y-%m-%d')) if self.date else ''})>"""
+
+    class Status:
+        ONGOING = "Ongoing"
+        COMPLETED = "Completed"
+        CANCELLED = "Cancelled"
+        HIATUS = "Hiatus"
+        UNKNOWN = "Unknown"
+
+    class Type:
+        TV = "TV"
+        MOVIE = "Movie"
+        OVA = "OVA"
+        ONA = "ONA"
+        MUSIC = "Music"
+        SPECIAL = "Special"
+        UNKNOWN = "Unknown"
+
     def __repr__(self):
-        return f"""<{self.__class__.__name__} "{self.title if len(self.title) < 30 else self.title[:30] + '...'}">"""
+        return f"""<{self.__class__.__name__} "{self.title if len(self.title) < 50 else self.title[:47] + '...'}">"""

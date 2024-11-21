@@ -1,7 +1,19 @@
 from re import compile
 from typing import List
 from json import loads
+from datetime import datetime
 from ..classes import Anime, Parser, ParserParams, Errors, MPDPlaylist
+
+
+class AniboomEpisode(Anime.Episode):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.parser: AniboomParser = (
+            kwargs["parser"] if "parser" in kwargs else AniboomParser()
+        )
+    
+    async def get_video(self, translation_id) -> MPDPlaylist:
+        return await self.parser.get_mpd_content(self.anime_id, self.episode_num, translation_id)
 
 
 class AniboomAnime(Anime):
@@ -12,18 +24,43 @@ class AniboomAnime(Anime):
         )
 
     async def get_episodes(self) -> dict:
+        if self.episodes:
+            return self.episodes
         self.episodes = await self.parser.get_episodes(self.url)
         self.total_episodes = int(self.episodes[-1].get("num", 0))
         return self.episodes
 
     async def get_translations(self) -> dict:
+        if self.translations:
+            return self.translations
         self.translations = await self.parser.get_translations(self.anime_id)
         return self.translations
 
     async def get_info(self) -> dict:
+        if self.data:
+            return self.data
         self.data = await self.parser.get_info(self.url)
-        self.episodes = self.data["episodes"]
+        self.episodes = self.data.get("episodes", [])
         self.translations = self.data["translations"]
+        self.status = (
+            Anime.Status.COMPLETED
+            if self.data.get("status", "") == "Вышел"
+            else (
+                Anime.Status.ONGOING
+                if "/" in self.data.get("status", "")
+                else Anime.Status.UNKNOWN
+            )
+        )
+        self.type = (
+            Anime.Type.TV if self.data.get("type", "") == "ТВ Сериал" else (
+                Anime.Type.MOVIE if self.data.get("type", "") == "Фильм" else (
+                    Anime.Type.OVA if self.data.get("type", "") == "OVA" else (
+                        Anime.Type.SPECIAL if self.data.get("type", "") == "Спешл" else (
+                            Anime.Type.UNKNOWN
+                        )
+                    )
+                )
+            ))
         return self.data
 
     async def get_video(
@@ -34,15 +71,24 @@ class AniboomAnime(Anime):
 
 class AniboomParser(Parser):
     def __init__(self, **kwargs):
-        params = ParserParams(
+        """
+        Aniboom (animego.org) Parser
+
+        Args:
+            **kwargs: Additional keyword arguments to pass to the parent Parser class.
+
+        Original code reference: https://github.com/YaNesyTortiK/AnimeParsers
+        """
+        self.params = ParserParams(
             base_url="https://animego.org/",
             headers={
                 "Accept": "application/json, text/javascript, */*; q=0.01",
                 "X-Requested-With": "XMLHttpRequest",
                 "Referer": "https://animego.org/",
             },
+            language="ru",
         )
-        super().__init__(params, **kwargs)
+        super().__init__(self.params, **kwargs)
 
     async def convert2anime(self, **kwargs) -> AniboomAnime:
         anime = AniboomAnime(
@@ -52,10 +98,20 @@ class AniboomParser(Parser):
             url=kwargs["link"],
             parser=self,
             id_type="aniboom",
+            language=self.language,
         )
         return anime
 
     async def search(self, query: str) -> List[AniboomAnime]:
+        """
+        Search anime on Aniboom (animego.org).
+
+        Args:
+            query (str): Anime title to search for.
+
+        Returns:
+            List[AniboomAnime]: List of matching anime.
+        """
         content = (await self.get("search/all", params={"type": "small", "q": query}))[
             "content"
         ]
@@ -87,7 +143,21 @@ class AniboomParser(Parser):
         return results
 
     async def get_episodes(self, link: str) -> List[dict]:
-        params = {"type": "episodeSchedule", "episodeNumber": "99999"}
+        """
+        Fetches and parses anime episodes from a given link.
+
+        Args:
+            link (str): The URL of the anime page to retrieve episodes from.
+
+        Returns:
+            List[dict]: A list of dictionaries containing various details about each episode,
+                including:
+                    num (str): The episode number.
+                    title (str): The episode title.
+                    date (str): The episode's release date.
+                    status (str): The episode's status, either "анонс" or "вышел".
+        """
+        params = {"type": "episodeSchedule", "episodeNumber": "9999"}
         response = await self.get(link, params=params)
         soup = await self.soup(response["content"])
         episodes_list = []
@@ -105,12 +175,75 @@ class AniboomParser(Parser):
                 {"num": num, "title": ep_title, "date": ep_date, "status": ep_status}
             )
 
-        return sorted(
+        episodes = sorted(
             episodes_list,
             key=lambda x: int(x["num"]) if x["num"].isdigit() else x["num"],
         )
+        for i, ep in enumerate(episodes):
+            if ep["date"]:
+                replace_month = {
+                    "янв.": "1",
+                    "февр.": "2",
+                    "мар.": "3",
+                    "апр.": "4",
+                    "май": "5",
+                    "июн.": "6",
+                    "июл.": "7",
+                    "авг.": "8",
+                    "сент.": "9",
+                    "окт.": "10",
+                    "нояб.": "11",
+                    "дек.": "12",
+                }
+                episodes[i]["date"] = datetime.strptime(
+                    " ".join(
+                        [
+                            x if x not in replace_month else replace_month[x]
+                            for x in episodes[i]["date"].split()
+                        ]
+                    ),
+                    "%d %m %Y",
+                )
+            episodes[i] = Anime.Episode(
+                episode_num=ep["num"],
+                title=ep["title"],
+                status=Anime.Episode.Status.RELEASED
+                if ep["status"] == "вышел"
+                else (
+                    Anime.Episode.Status.ANNOUNCED
+                    if ep["status"] == "анонс"
+                    else Anime.Episode.Status.UNKNOWN
+                ),
+                date=ep["date"],
+            )
+        if not episodes:
+            episodes = [Anime.Episode(episode_num="0", status=Anime.Episode.Status.UNKNOWN)]
+        return episodes
 
     async def get_info(self, link: str) -> dict:
+        """
+        Fetches and parses anime information from a given link.
+
+        Args:
+            link (str): The URL of the anime page to retrieve information from.
+
+        Returns:
+            dict: A dictionary containing various details about the anime, including:
+                - link (str): The URL of the anime page.
+                - animego_id (str): The ID of the anime extracted from the link.
+                - title (str): The main title of the anime.
+                - other_titles (list of str): A list of alternative titles.
+                - poster_url (str): URL to the anime's poster image.
+                - genres (list of str): A list of genres associated with the anime.
+                - episodes (str): Information about the episodes.
+                - status (str): Current status of the anime (e.g., ongoing, completed).
+                - type (str): Type of the anime (e.g., TV, movie).
+                - description (str): A brief description of the anime.
+                - screenshots (list of str): URLs of screenshot images.
+                - trailer (str or None): URL to the anime's trailer, if available.
+                - translations (list): List of available translations.
+                - other_info (dict): Additional information about the anime, such as main characters.
+        """
         anime_data = {}
         response = await self.get(link)
         soup = await self.soup(response)
@@ -185,6 +318,15 @@ class AniboomParser(Parser):
         return anime_data
 
     async def get_translations(self, animego_id: int | str) -> dict:
+        """
+        Get translations for animego_id.
+
+        Args:
+        animego_id: str or int, animego id of anime.
+
+        Returns:
+        dict: translations with names and translation ids.
+        """
         params = {
             "_allow": "true",
         }
@@ -280,5 +422,16 @@ class AniboomParser(Parser):
     async def get_mpd_content(
         self, animego_id: int | str, episode: int, translation_id: int
     ) -> MPDPlaylist:
+        """
+        Retrieves the MPD playlist file content for a given anime episode and translation.
+
+        Args:
+            animego_id (int | str): The unique identifier of the anime.
+            episode (int): The episode number of the anime.
+            translation_id (int): The translation identifier for the episode.
+
+        Returns:
+            MPDPlaylist: The MPD playlist containing the DASH streaming content for the specified episode and translation.
+        """
         embed_link = await self.get_embed_link(animego_id)
         return await self.get_mpd_playlist(embed_link, episode, translation_id)
