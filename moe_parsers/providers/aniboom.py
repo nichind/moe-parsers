@@ -1,7 +1,7 @@
 from re import compile
 from typing import List
 from json import loads
-from ..classes import Anime, Parser, Errors
+from ..classes import Anime, Parser, ParserParams, Errors, MPDPlaylist
 
 
 class AniboomAnime(Anime):
@@ -26,21 +26,25 @@ class AniboomAnime(Anime):
         self.translations = self.data["translations"]
         return self.data
 
-    async def get_content(self, episode: int | str, translation_id: int | str) -> str:
+    async def get_video(
+        self, episode: int | str, translation_id: int | str
+    ) -> MPDPlaylist:
         return await self.parser.get_mpd_content(self.anime_id, episode, translation_id)
 
 
 class AniboomParser(Parser):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.base_url = "https://animego.org/"
-        self.headers = {
-            "Accept": "application/json, text/javascript, */*; q=0.01",
-            "X-Requested-With": "XMLHttpRequest",
-            "Referer": "https://animego.org/",
-        }
+    def __init__(self, **kwargs):
+        params = ParserParams(
+            base_url="https://animego.org/",
+            headers={
+                "Accept": "application/json, text/javascript, */*; q=0.01",
+                "X-Requested-With": "XMLHttpRequest",
+                "Referer": "https://animego.org/",
+            },
+        )
+        super().__init__(params, **kwargs)
 
-    async def convert2anime(self, *args, **kwargs) -> AniboomAnime:
+    async def convert2anime(self, **kwargs) -> AniboomAnime:
         anime = AniboomAnime(
             orig_title=kwargs["other_title"],
             title=kwargs["title"],
@@ -82,7 +86,7 @@ class AniboomParser(Parser):
 
         return results
 
-    async def get_episodes(self, link: str, *args, **kwargs) -> List[dict]:
+    async def get_episodes(self, link: str) -> List[dict]:
         params = {"type": "episodeSchedule", "episodeNumber": "99999"}
         response = await self.get(link, params=params)
         soup = await self.soup(response["content"])
@@ -106,7 +110,7 @@ class AniboomParser(Parser):
             key=lambda x: int(x["num"]) if x["num"].isdigit() else x["num"],
         )
 
-    async def get_info(self, link: str, *args, **kwargs) -> dict:
+    async def get_info(self, link: str) -> dict:
         anime_data = {}
         response = await self.get(link)
         soup = await self.soup(response)
@@ -180,7 +184,7 @@ class AniboomParser(Parser):
 
         return anime_data
 
-    async def get_translations(self, animego_id: int | str, *args, **kwargs) -> dict:
+    async def get_translations(self, animego_id: int | str) -> dict:
         params = {
             "_allow": "true",
         }
@@ -236,18 +240,25 @@ class AniboomParser(Parser):
     async def get_embed(self, embed_link: str, episode: int, translation: str) -> str:
         if episode != 0:
             params = {
-                "episode": episode,
+                "episode": str(episode),
                 "translation": translation,
             }
         else:
             params = {
                 "translation": translation,
             }
-        return await self.get(embed_link, params=params, text=True)
+        try:
+            return await self.get(embed_link, params=params, text=True)
+        except Errors.PageNotFound:
+            if episode == 0:
+                params["episode"] = "1"
+            else:
+                params[episode] = "0"
+            return await self.get(embed_link, params=params, text=True)
 
     async def get_mpd_playlist(
         self, embed_link: str, episode: int, translation: str
-    ) -> str:
+    ) -> MPDPlaylist:
         embed = await self.get_embed(embed_link, episode, translation)
         soup = await self.soup(embed)
         data = loads(soup.find("div", {"id": "video"}).get("data-parameters"))
@@ -264,12 +275,10 @@ class AniboomParser(Parser):
         server_path = media_src[: media_src.rfind(".")]
         playlist = playlist.replace(filename, server_path)
 
-        return playlist
+        return MPDPlaylist(media_src, playlist)
 
     async def get_mpd_content(
-        self, animego_id: int | str, episode: int, translation_id: int, *args, **kwargs
-    ) -> str:
+        self, animego_id: int | str, episode: int, translation_id: int
+    ) -> MPDPlaylist:
         embed_link = await self.get_embed_link(animego_id)
-        return await self.get_mpd_playlist(
-            embed_link, episode, translation_id, *args, **kwargs
-        )
+        return await self.get_mpd_playlist(embed_link, episode, translation_id)
