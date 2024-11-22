@@ -204,7 +204,7 @@ class AniboomParser(Parser):
                     ),
                     "%d %m %Y",
                 )
-            episodes[i] = Anime.Episode(
+            episodes[i] = AniboomEpisode(
                 episode_num=ep["num"],
                 title=ep["title"],
                 status=Anime.Episode.Status.RELEASED
@@ -217,7 +217,7 @@ class AniboomParser(Parser):
                 date=ep["date"],
             )
         if not episodes:
-            episodes = [Anime.Episode(episode_num="0", status=Anime.Episode.Status.UNKNOWN)]
+            episodes = [AniboomEpisode(episode_num="0", status=Anime.Episode.Status.UNKNOWN)]
         return episodes
 
     async def get_info(self, link: str) -> dict:
