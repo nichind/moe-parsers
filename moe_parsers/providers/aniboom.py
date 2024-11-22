@@ -186,9 +186,9 @@ class AniboomParser(Parser):
                     "февр.": "2",
                     "мар.": "3",
                     "апр.": "4",
-                    "май": "5",
-                    "июн.": "6",
-                    "июл.": "7",
+                    "мая": "5",
+                    "июня": "6",
+                    "июля": "7",
                     "авг.": "8",
                     "сент.": "9",
                     "окт.": "10",
@@ -312,7 +312,8 @@ class AniboomParser(Parser):
             anime_data["translations"] = await self.get_translations(
                 anime_data["animego_id"]
             )
-        except Exception:
+        except Exception as e:
+            print(e)
             anime_data["translations"] = []
 
         return anime_data
@@ -338,29 +339,34 @@ class AniboomParser(Parser):
             reason = reason_elem.text if reason_elem else None
             raise Errors.PlayerBlocked(f"Player is blocked: {reason}")
 
-        translations_elem = soup.find("div", {"id": "video-dubbing"}).find_all(
-            "span", {"class": "video-player-toggle-item"}
-        )
-        translations = {}
-        for translation in translations_elem:
-            dubbing = translation.get_attribute_list("data-dubbing")[0]
-            name = translation.text.strip()
-            translations[dubbing] = {"name": name}
+        try:
+            translations_elem = soup.find("div", {"id": "video-dubbing"}).find_all(
+                "span", {"class": "video-player-toggle-item"}
+            )
+            translations = {}
+            for translation in translations_elem:
+                dubbing = translation.get_attribute_list("data-dubbing")[0]
+                name = translation.text.strip()
+                translations[dubbing] = {"name": name}
 
-        players_elem = soup.find("div", {"id": "video-players"}).find_all(
-            "span", {"class": "video-player-toggle-item"}
-        )
-        for player in players_elem:
-            if player.get_attribute_list("data-provider")[0] == "24":
-                dubbing = player.get_attribute_list("data-provide-dubbing")[0]
-                translation_id = player.get_attribute_list("data-player")[0]
-                translation_id = translation_id[translation_id.rfind("=") + 1 :]
-                translations[dubbing]["translation_id"] = translation_id
+            players_elem = soup.find("div", {"id": "video-players"}).find_all(
+                "span", {"class": "video-player-toggle-item"}
+            )
+            for player in players_elem:
+                if player.get_attribute_list("data-provider")[0] == "24":
+                    dubbing = player.get_attribute_list("data-provide-dubbing")[0]
+                    translation_id = player.get_attribute_list("data-player")[0]
+                    translation_id = translation_id[translation_id.rfind("=") + 1 :]
+                    translations[dubbing]["translation_id"] = translation_id
 
-        filtered_translations = []
-        for translation in translations.values():
-            if "translation_id" in translation:
-                filtered_translations.append(translation)
+            filtered_translations = []
+            for translation in translations.values():
+                if "translation_id" in translation:
+                    filtered_translations.append(translation)
+
+        except Exception as e:
+            print(e)
+            filtered_translations = []
 
         return filtered_translations
 
