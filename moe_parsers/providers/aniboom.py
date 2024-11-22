@@ -1,4 +1,4 @@
-from re import compile
+from re import compile, sub
 from typing import List
 from json import loads
 from datetime import datetime
@@ -11,10 +11,26 @@ class AniboomEpisode(Anime.Episode):
         self.parser: AniboomParser = (
             kwargs["parser"] if "parser" in kwargs else AniboomParser()
         )
-    
-    async def get_video(self, translation_id) -> MPDPlaylist:
-        return await self.parser.get_mpd_content(self.anime_id, self.episode_num, translation_id)
 
+    async def get_video(self, translation_id: int | str = '1') -> MPDPlaylist:
+        for video in self.videos:
+            if video["translation_id"] == translation_id and video["content"]:
+                return video["content"]
+        content = await self.parser.get_mpd_content(
+            self.anime_id, self.episode_num, translation_id
+        )
+        result = {"translation_id": translation_id, "content": content}
+        if result not in self.videos:
+            self.videos.append(result)
+        return content
+    
+    async def get_videos(self) -> List[dict]:
+        for translation in await self.parser.get_translations(self.anime_id):
+            try:
+                await self.get_video(translation_id=translation["translation_id"])
+            except Exception:
+                continue
+        return self.videos
 
 class AniboomAnime(Anime):
     def __init__(self, *args, **kwargs):
@@ -26,7 +42,7 @@ class AniboomAnime(Anime):
     async def get_episodes(self) -> dict:
         if self.episodes:
             return self.episodes
-        self.episodes = await self.parser.get_episodes(self.url)
+        self.episodes: List[AniboomEpisode] = await self.parser.get_episodes(self.url)
         self.total_episodes = int(self.episodes[-1].get("num", 0))
         return self.episodes
 
@@ -52,21 +68,43 @@ class AniboomAnime(Anime):
             )
         )
         self.type = (
-            Anime.Type.TV if self.data.get("type", "") == "ТВ Сериал" else (
-                Anime.Type.MOVIE if self.data.get("type", "") == "Фильм" else (
-                    Anime.Type.OVA if self.data.get("type", "") == "OVA" else (
-                        Anime.Type.SPECIAL if self.data.get("type", "") == "Спешл" else (
-                            Anime.Type.UNKNOWN
-                        )
+            Anime.Type.TV
+            if self.data.get("type", "") == "ТВ Сериал"
+            else (
+                Anime.Type.MOVIE
+                if self.data.get("type", "") == "Фильм"
+                else (
+                    Anime.Type.OVA
+                    if self.data.get("type", "") == "OVA"
+                    else (
+                        Anime.Type.SPECIAL
+                        if self.data.get("type", "") == "Спешл"
+                        else (Anime.Type.UNKNOWN)
                     )
                 )
-            ))
+            )
+        )
         return self.data
 
     async def get_video(
         self, episode: int | str, translation_id: int | str
     ) -> MPDPlaylist:
         return await self.parser.get_mpd_content(self.anime_id, episode, translation_id)
+
+    async def get_videos(self) -> List[dict]:
+        """
+        Get all videos for all episodes.
+        Very long process, can take a while. Probably shouldn't be used on prod
+
+        Returns:
+            List[dict]: List of videos for each episode
+        """
+        for episode in self.episodes if self.episodes else await self.get_episodes():
+            try:
+                await episode.get_videos()
+            except Exception:
+                continue
+        return [episode.videos for episode in self.episodes]
 
 
 class AniboomParser(Parser):
@@ -142,7 +180,7 @@ class AniboomParser(Parser):
 
         return results
 
-    async def get_episodes(self, link: str) -> List[dict]:
+    async def get_episodes(self, link: str) -> List[AniboomEpisode]:
         """
         Fetches and parses anime episodes from a given link.
 
@@ -180,30 +218,36 @@ class AniboomParser(Parser):
             key=lambda x: int(x["num"]) if x["num"].isdigit() else x["num"],
         )
         for i, ep in enumerate(episodes):
-            if ep["date"]:
-                replace_month = {
-                    "янв.": "1",
-                    "февр.": "2",
-                    "мар.": "3",
-                    "апр.": "4",
-                    "мая": "5",
-                    "июня": "6",
-                    "июля": "7",
-                    "авг.": "8",
-                    "сент.": "9",
-                    "окт.": "10",
-                    "нояб.": "11",
-                    "дек.": "12",
-                }
-                episodes[i]["date"] = datetime.strptime(
-                    " ".join(
-                        [
-                            x if x not in replace_month else replace_month[x]
-                            for x in episodes[i]["date"].split()
-                        ]
-                    ),
-                    "%d %m %Y",
-                )
+            try:
+                if ep["date"]:
+                    replace_month = {
+                        "янв.": "1",
+                        "февр.": "2",
+                        "мар.": "3",
+                        "апр.": "4",
+                        "мая": "5",
+                        "июня": "6",
+                        "июля": "7",
+                        "авг.": "8",
+                        "сент.": "9",
+                        "окт.": "10",
+                        "нояб.": "11",
+                        "дек.": "12",
+                        "июл.": "7",
+                        "июн.": "6",
+                    }
+                    episodes[i]["date"] = datetime.strptime(
+                        " ".join(
+                            [
+                                x if x not in replace_month else replace_month[x]
+                                for x in episodes[i]["date"].split()
+                            ]
+                        ),
+                        "%d %m %Y",
+                    )
+            except ValueError as exc:
+                print(exc)
+                episodes[i]["date"] = None
             episodes[i] = AniboomEpisode(
                 episode_num=ep["num"],
                 title=ep["title"],
@@ -215,9 +259,18 @@ class AniboomParser(Parser):
                     else Anime.Episode.Status.UNKNOWN
                 ),
                 date=ep["date"],
+                anime_id=sub(r"\D", "", link[link.rfind("-") + 1 :]),
+                anime_url=link,
             )
         if not episodes:
-            episodes = [AniboomEpisode(episode_num="0", status=Anime.Episode.Status.UNKNOWN)]
+            episodes = [
+                AniboomEpisode(
+                    episode_num="0",
+                    status=Anime.Episode.Status.UNKNOWN,
+                    anime_id=sub(r"\D", "", link[link.rfind("-") + 1 :]),
+                    anime_url=link,
+                )
+            ]
         return episodes
 
     async def get_info(self, link: str) -> dict:

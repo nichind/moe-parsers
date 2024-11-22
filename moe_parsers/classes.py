@@ -2,7 +2,8 @@ from aiohttp import ClientSession
 from bs4 import BeautifulSoup
 from asyncio import sleep
 from io import BytesIO
-from typing import Literal
+from typing import Literal, List
+from datetime import datetime
 
 
 class Errors:
@@ -156,32 +157,34 @@ class Parser(object):
 
 class Anime(object):
     def __init__(self, *args, **kwargs):
-        self.orig_title = None
-        self.title = None
-        self.anime_id = None
-        self.id_type = None
-        self.url = None
-        self.episodes = None
-        self.total_episodes = None
-        self.type = None
-        self.status = None
-        self.year = None
-        self.parser = None
-        self.translations = None
-        self.data = None
-        self.language = None
-        self.status = self.Status.UNKNOWN
+        self.orig_title: str = None
+        self.title: str = None
+        self.anime_id: int | str = None
+        self.id_type: str = None
+        self.url: str = None
+        self.episodes: List[Anime.Episode] = None
+        self.total_episodes: int = None
+        self.type: str = self.Type.UNKNOWN
+        self.year: int | str = None
+        self.parser: Parser = None
+        self.translations: dict = None
+        self.data: dict = None
+        self.language: str = None
+        self.status: str = self.Status.UNKNOWN
         self.args = args
         for kwarg in kwargs:
             setattr(self, kwarg, kwargs[kwarg])
 
     class Episode(dict):
         def __init__(self, **kwargs):
-            self.anime_id = None
+            self.anime_id: int | str = None
+            self.anime_url: str = None
+            self.id_type: str = None
             self.episode_num = None
-            self.status = self.Status.UNKNOWN
-            self.title = None
-            self.date = None
+            self.status: str = self.Status.UNKNOWN
+            self.title: str = None
+            self.date: datetime = None
+            self.videos: List = []
             for kwarg in kwargs:
                 setattr(self, kwarg, kwargs[kwarg])
 

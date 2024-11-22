@@ -14,7 +14,7 @@ setup(
     description="Async aniboom/kodik player parser",
     long_description=readme(),
     long_description_content_type="text/markdown",
-    url="https://github.com/nichind/moe-players",
+    url="https://github.com/nichind/moe-parsers",
     packages=find_packages(),
     install_requires=["aiohttp", "python-dotenv", "beautifulsoup4"],
     classifiers=[
@@ -23,4 +23,5 @@ setup(
         "Operating System :: OS Independent",
     ],
     python_requires=">=3.10",
+    keywords=["aniboom", "kodik", "animego", "moe", "parser", "anime", "async"],
 )
