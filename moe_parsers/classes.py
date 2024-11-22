@@ -181,6 +181,7 @@ class Anime(object):
             self.anime_url: str = None
             self.id_type: str = None
             self.episode_num = None
+            self.episode_id = None
             self.status: str = self.Status.UNKNOWN
             self.title: str = None
             self.date: datetime = None

@@ -12,7 +12,7 @@ class AniboomEpisode(Anime.Episode):
             kwargs["parser"] if "parser" in kwargs else AniboomParser()
         )
 
-    async def get_video(self, translation_id: int | str = '1') -> MPDPlaylist:
+    async def get_video(self, translation_id: int | str = "1") -> MPDPlaylist:
         for video in self.videos:
             if video["translation_id"] == translation_id and video["content"]:
                 return video["content"]
@@ -23,7 +23,7 @@ class AniboomEpisode(Anime.Episode):
         if result not in self.videos:
             self.videos.append(result)
         return content
-    
+
     async def get_videos(self) -> List[dict]:
         for translation in await self.parser.get_translations(self.anime_id):
             try:
@@ -31,6 +31,7 @@ class AniboomEpisode(Anime.Episode):
             except Exception:
                 continue
         return self.videos
+
 
 class AniboomAnime(Anime):
     def __init__(self, *args, **kwargs):
@@ -47,7 +48,7 @@ class AniboomAnime(Anime):
         return self.episodes
 
     async def get_translations(self) -> dict:
-        if self.translations:
+        if self.translations and len(self.translations) > 0:
             return self.translations
         self.translations = await self.parser.get_translations(self.anime_id)
         return self.translations
@@ -108,9 +109,11 @@ class AniboomAnime(Anime):
 
 
 class AniboomParser(Parser):
-    def __init__(self, **kwargs):
+    def __init__(self, params: ParserParams = None, **kwargs):
         """
         Aniboom (animego.org) Parser
+
+        [!] This parser parser videos from animego.org with aniboom as a player, not all players avaliable on the site, if you want to parse different players, use AnimegoParser instead.
 
         Args:
             **kwargs: Additional keyword arguments to pass to the parent Parser class.
@@ -126,6 +129,8 @@ class AniboomParser(Parser):
             },
             language="ru",
         )
+        if params:
+            self.params = params
         super().__init__(self.params, **kwargs)
 
     async def convert2anime(self, **kwargs) -> AniboomAnime:
@@ -135,7 +140,7 @@ class AniboomParser(Parser):
             anime_id=kwargs["id"],
             url=kwargs["link"],
             parser=self,
-            id_type="aniboom",
+            id_type="animego",
             language=self.language,
         )
         return anime
@@ -208,9 +213,20 @@ class AniboomParser(Parser):
                 if items[2].find("span")
                 else ""
             )
+            ep_id = (
+                items[3].find("span").get_attribute_list("data-watched-id")[0]
+                if items[3].find("span")
+                else None
+            )
             ep_status = "анонс" if items[3].find("span") is None else "вышел"
             episodes_list.append(
-                {"num": num, "title": ep_title, "date": ep_date, "status": ep_status}
+                {
+                    "num": num,
+                    "title": ep_title,
+                    "date": ep_date,
+                    "status": ep_status,
+                    "episode_id": ep_id,
+                }
             )
 
         episodes = sorted(
@@ -261,6 +277,7 @@ class AniboomParser(Parser):
                 date=ep["date"],
                 anime_id=sub(r"\D", "", link[link.rfind("-") + 1 :]),
                 anime_url=link,
+                episode_id=ep["episode_id"],
             )
         if not episodes:
             episodes = [
