@@ -2,11 +2,12 @@ from aiohttp import ClientSession
 from bs4 import BeautifulSoup
 from asyncio import sleep
 from io import BytesIO
-from typing import Literal, List
+from typing import Literal, List, Self
 from datetime import datetime
+import os
 
 
-class Errors:
+class Exceptions:
     class PageNotFound(Exception):
         pass
 
@@ -62,7 +63,7 @@ class ParserParams:
 
 
 class Parser(object):
-    def __init__(self, params: ParserParams, **kwargs):
+    def __init__(self, params: ParserParams = None, **kwargs):
         self.base_url = None
         self.headers = {}
         self.args = []
@@ -78,11 +79,42 @@ class Parser(object):
         except ImportError:
             self.lxml = False
 
-        for kwarg in params.__dict__:
-            setattr(self, kwarg, params.__dict__[kwarg])
+        if params:
+            for kwarg in params.__dict__:
+                setattr(self, kwarg, params.__dict__[kwarg])
 
         for kwarg in kwargs:
             setattr(self, kwarg, kwargs[kwarg])
+
+    def list_providers(**filters) -> List[Self]:
+        """
+        List all supported providers by filters
+        """
+        all_providers = []
+        for provider in os.listdir(os.path.dirname(__file__) + "/providers"):
+            if os.path.isfile(os.path.dirname(__file__) + "/providers/" + provider):
+                _provider = __import__(
+                    f"moe_parsers.providers.{provider[:-3]}",
+                    globals(),
+                    locals(),
+                    ["*"],
+                    0,
+                )
+                try:
+                    for cl in _provider.__dict__:
+                        if str(cl).endswith("Parser") and str(cl) != "Parser":
+                            parser = _provider.__dict__[str(cl)]()
+                            for kwarg in filters:
+                                if getattr(parser, kwarg) != filters[kwarg]:
+                                    break
+                            else:
+                                if parser.__class__.__name__ not in [
+                                    x.__class__.__name__ for x in all_providers
+                                ]:
+                                    all_providers.append(parser)
+                except AttributeError:
+                    pass
+        return all_providers
 
     async def get(self, path: str, **kwargs) -> dict | str:
         return await self.request(path, "get", **kwargs)
@@ -95,7 +127,9 @@ class Parser(object):
     ) -> dict | str:
         max_retries = 30
         if kwargs.get("retries", 0) > max_retries:
-            raise Errors.TooManyRetries
+            raise Exceptions.TooManyRetries
+
+        print(kwargs.get("headers", self.headers))
 
         session = (
             ClientSession(
@@ -133,7 +167,7 @@ class Parser(object):
                         **kwargs,
                     )
                 elif response.status == 404:
-                    raise Errors.PageNotFound(f"Page not found: {url}")
+                    raise Exceptions.PageNotFound(f"Page not found: {url}")
 
                 try:
                     if kwargs.get("text", False):

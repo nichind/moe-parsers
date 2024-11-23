@@ -2,7 +2,7 @@ from re import compile, sub
 from typing import List
 from json import loads
 from datetime import datetime
-from ..classes import Anime, Parser, ParserParams, Errors, MPDPlaylist
+from ..classes import Anime, Parser, ParserParams, Exceptions, MPDPlaylist
 from .aniboom import AniboomParser
 
 
@@ -62,6 +62,9 @@ class AnimegoAnime(Anime):
             return self.data
         self.data = await self.parser.get_info(self.url)
         self.episodes = self.data.get("episodes", [])
+        for i, episode in enumerate(self.episodes):
+            if not isinstance(episode, AnimegoEpisode):
+                self.episodes[i] = AnimegoEpisode(**episode.__dict__)
         self.translations = self.data["translations"]
         self.status = (
             Anime.Status.COMPLETED
@@ -130,6 +133,9 @@ class AnimegoAnime(Anime):
         results = [[] for _ in range(len(self.episodes))]
         for i, episode in enumerate(self.episodes):
             if episode.videos is None or episode.status != "Released":
+                continue
+            if isinstance(self.episodes, list):
+                results[i] = episode.videos
                 continue
             for video in episode.videos.values():
                 for player in video["players"]:
@@ -210,7 +216,7 @@ class AnimegoParser(Parser):
         if soup.find("div", {"class": "player-blocked"}):
             reason_elem = soup.find("div", {"class": "h5"})
             reason = reason_elem.text if reason_elem else None
-            raise Errors.PlayerBlocked(f"Player is blocked: {reason}")
+            raise Exceptions.PlayerBlocked(f"Player is blocked: {reason}")
 
         try:
             translations_elem = soup.find("div", {"id": "video-dubbing"}).find_all(

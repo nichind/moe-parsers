@@ -2,7 +2,7 @@ from re import compile, sub
 from typing import List
 from json import loads
 from datetime import datetime
-from ..classes import Anime, Parser, ParserParams, Errors, MPDPlaylist
+from ..classes import Anime, Parser, ParserParams, Exceptions, MPDPlaylist
 
 
 class AniboomEpisode(Anime.Episode):
@@ -407,7 +407,7 @@ class AniboomParser(Parser):
         if soup.find("div", {"class": "player-blocked"}):
             reason_elem = soup.find("div", {"class": "h5"})
             reason = reason_elem.text if reason_elem else None
-            raise Errors.PlayerBlocked(f"Player is blocked: {reason}")
+            raise Exceptions.PlayerBlocked(f"Player is blocked: {reason}")
 
         try:
             translations_elem = soup.find("div", {"id": "video-dubbing"}).find_all(
@@ -448,7 +448,7 @@ class AniboomParser(Parser):
         soup = await self.soup(response["content"])
         if soup.find("div", {"class": "player-blocked"}):
             reason = soup.find("div", {"class": "h5"}).text
-            raise Errors.PlayerBlocked(f"Content is blocked: {reason}")
+            raise Exceptions.PlayerBlocked(f"Content is blocked: {reason}")
         player_container = soup.find("div", {"id": "video-players"})
         player_link = player_container.find(
             "span", {"class": "video-player-toggle-item"}
@@ -467,7 +467,7 @@ class AniboomParser(Parser):
             }
         try:
             return await self.get(embed_link, params=params, text=True)
-        except Errors.PageNotFound:
+        except Exceptions.PageNotFound:
             if episode == 0:
                 params["episode"] = "1"
             else:
