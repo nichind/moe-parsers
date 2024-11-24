@@ -142,6 +142,7 @@ class AniboomParser(Parser):
             parser=self,
             id_type="animego",
             language=self.language,
+            data=kwargs["data"],
         )
         return anime
 
@@ -160,13 +161,17 @@ class AniboomParser(Parser):
         ]
 
         page = await self.soup(content)
-        results_list = page.find("div", {"class": "result-search-anime"}).find_all(
-            "div", {"class": "result-search-item"}
-        )
+        try:
+            results_list = page.find("div", {"class": "result-search-anime"}).find_all(
+                "div", {"class": "result-search-item"}
+            )
+        except AttributeError:
+            return []
 
         results = []
         for result in results_list:
             data = {}
+            data['data'] = {}
             data["title"] = result.find("h5").text.strip()
             data["year"] = result.find("span", {"class": "anime-year"}).text.strip()
             data["other_title"] = (
@@ -181,6 +186,7 @@ class AniboomParser(Parser):
                 self.base_url[:-1] + result.find("h5").find("a").attrs["href"]
             )
             data["id"] = data["link"][data["link"].rfind("-") + 1 :]
+            data['data']['year'] = result.find("span", {"class": "anime-year"}).text.strip()
             results.append(await self.convert2anime(**data))
 
         return results

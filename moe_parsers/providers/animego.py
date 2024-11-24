@@ -194,6 +194,7 @@ class AnimegoParser(Parser):
             parser=self,
             id_type="animego",
             language=self.language,
+            data=kwargs["data"],
         )
         return anime
 

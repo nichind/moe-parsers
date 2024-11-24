@@ -125,7 +125,7 @@ class Parser(object):
     async def request(
         self, path: str, request_type: Literal["get", "post"] = "get", **kwargs
     ) -> dict | str:
-        max_retries = 30
+        max_retries = 100
         if kwargs.get("retries", 0) > max_retries:
             raise Exceptions.TooManyRetries
         session = (
@@ -157,11 +157,8 @@ class Parser(object):
                 if response.status == 429:
                     retry_after = response.headers.get("Retry-After", 1)
                     await sleep(float(retry_after))
-                    return await self.request(
-                        path,
-                        retries=kwargs.get("retries", 0) + 1,
-                        **kwargs,
-                    )
+                    kwargs["retries"] = kwargs.get("retries", 0) + 1
+                    return await self.request(path, **kwargs)
                 elif response.status == 404:
                     raise Exceptions.PageNotFound(f"Page not found: {url}")
 
