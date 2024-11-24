@@ -128,9 +128,6 @@ class Parser(object):
         max_retries = 30
         if kwargs.get("retries", 0) > max_retries:
             raise Exceptions.TooManyRetries
-
-        print(kwargs.get("headers", self.headers))
-
         session = (
             ClientSession(
                 headers=kwargs.get("headers", self.headers),
@@ -152,7 +149,6 @@ class Parser(object):
                 else kwargs["base_url"]
             )
             url = f"{base_url}{path}"
-
             async with session.get(
                 url, params=kwargs.get("params")
             ) if request_type == "get" else session.post(
@@ -249,4 +245,4 @@ class Anime(object):
         UNKNOWN = "Unknown"
 
     def __repr__(self):
-        return f"""<{self.__class__.__name__} "{self.title if len(self.title) < 50 else self.title[:47] + '...'}">"""
+        return f"""<{self.__class__.__name__} "{self.title if len(self.title) < 50 else self.title[:47] + '...'}" "{self.orig_title if len(self.orig_title) < 50 else self.orig_title[:47] + '...'}">"""

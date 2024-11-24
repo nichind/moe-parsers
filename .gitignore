@@ -4,3 +4,6 @@ test.py
 .ruff_cache
 *.pyc
 __pycache__
+*.bat
+/*.py
+*.sqlite
