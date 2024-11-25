@@ -4,6 +4,7 @@ from asyncio import sleep
 from io import BytesIO
 from typing import Literal, List, Self
 from datetime import datetime
+import requests
 import os
 
 
@@ -125,39 +126,53 @@ class Parser(object):
     async def request(
         self, path: str, request_type: Literal["get", "post"] = "get", **kwargs
     ) -> dict | str:
-        max_retries = 100
-        if kwargs.get("retries", 0) > max_retries:
-            raise Exceptions.TooManyRetries
         session = (
             ClientSession(
                 headers=kwargs.get("headers", self.headers),
-                proxy=self.proxy,
-                proxy_auth=self.proxy_auth,
             )
             if not self.session or self.session.closed
             else self.session
         )
 
+        retries = kwargs.get("retries", 0)
+        if retries > 100:
+            raise Exceptions.TooManyRetries
+
         try:
-            base_url = (
-                (
-                    ""
-                    if self.base_url is None or path.startswith("http")
-                    else self.base_url
-                )
-                if "base_url" not in kwargs
-                else kwargs["base_url"]
+            url = (
+                f"{kwargs.get('base_url', self.base_url)}{path}"
+                if not path.startswith("http")
+                else path
             )
-            url = f"{base_url}{path}"
-            async with session.get(
-                url, params=kwargs.get("params")
-            ) if request_type == "get" else session.post(
-                url, data=kwargs.get("data")
+            if kwargs.get("proxy", self.proxy):
+                response = (
+                    requests.get(url, params=kwargs.get("params"), proxies={'http': kwargs.get("proxy", self.proxy)})
+                    if request_type == "get"
+                    else requests.post(url, data=kwargs.get("data"), proxies={'http': kwargs.get("proxy", self.proxy)})
+                )
+                if response.status_code == 429:
+                    retry_after = response.headers.get("Retry-After", 1)
+                    await sleep(float(retry_after))
+                    kwargs["retries"] = retries + 1
+                    return await self.request(path, **kwargs)
+                elif response.status_code == 404:
+                    raise Exceptions.PageNotFound(f"Page not found: {url}")
+
+                try:
+                    if kwargs.get("text", False):
+                        return response.text
+                    return response.json()
+                except Exception:
+                    return response.text
+            async with (
+                session.get(url, params=kwargs.get("params"))
+                if request_type == "get"
+                else session.post(url, data=kwargs.get("data"))
             ) as response:
                 if response.status == 429:
                     retry_after = response.headers.get("Retry-After", 1)
                     await sleep(float(retry_after))
-                    kwargs["retries"] = kwargs.get("retries", 0) + 1
+                    kwargs["retries"] = retries + 1
                     return await self.request(path, **kwargs)
                 elif response.status == 404:
                     raise Exceptions.PageNotFound(f"Page not found: {url}")
@@ -169,7 +184,7 @@ class Parser(object):
                 except Exception:
                     return await response.text()
         except OSError:
-            kwargs["retries"] = kwargs.get("retries", 0) + 1
+            kwargs["retries"] = retries + 1
             await sleep(1)
             return await self.request(path, **kwargs)
         finally:
