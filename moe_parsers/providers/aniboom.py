@@ -16,7 +16,7 @@ class AniboomEpisode(Anime.Episode):
         for video in self.videos:
             if video["translation_id"] == translation_id and video["content"]:
                 return video["content"]
-        content = await self.parser.get_mpd_content(
+        content = await self.parser.get(
             self.anime_id, self.episode_num, translation_id
         )
         result = {"translation_id": translation_id, "content": content}
@@ -28,8 +28,8 @@ class AniboomEpisode(Anime.Episode):
         for translation in await self.parser.get_translations(self.anime_id):
             try:
                 await self.get_video(translation_id=translation["translation_id"])
-            except Exception:
-                continue
+            except Exception as exc:
+                print(exc)
         return self.videos
 
 
@@ -40,7 +40,7 @@ class AniboomAnime(Anime):
             kwargs["parser"] if "parser" in kwargs else AniboomParser()
         )
 
-    async def get_episodes(self) -> dict:
+    async def get_episodes(self) -> List[AniboomEpisode]:
         if self.episodes:
             return self.episodes
         self.episodes: List[AniboomEpisode] = await self.parser.get_episodes(self.url)
@@ -171,7 +171,7 @@ class AniboomParser(Parser):
         results = []
         for result in results_list:
             data = {}
-            data['data'] = {}
+            data["data"] = {}
             data["title"] = result.find("h5").text.strip()
             data["year"] = result.find("span", {"class": "anime-year"}).text.strip()
             data["other_title"] = (
@@ -186,7 +186,9 @@ class AniboomParser(Parser):
                 self.base_url[:-1] + result.find("h5").find("a").attrs["href"]
             )
             data["id"] = data["link"][data["link"].rfind("-") + 1 :]
-            data['data']['year'] = result.find("span", {"class": "anime-year"}).text.strip()
+            data["data"]["year"] = result.find(
+                "span", {"class": "anime-year"}
+            ).text.strip()
             results.append(await self.convert2anime(**data))
 
         return results
@@ -462,23 +464,28 @@ class AniboomParser(Parser):
         return "https:" + player_link[: player_link.rfind("?")]
 
     async def get_embed(self, embed_link: str, episode: int, translation: str) -> str:
+        headers = {
+            "Origin": "https://aniboom.one",
+            "Referer": "https://aniboom.one/",
+        }
+        
         if episode != 0:
             params = {
                 "episode": str(episode),
-                "translation": translation,
+                "translation": str(translation),
             }
         else:
             params = {
-                "translation": translation,
+                "translation": str(translation),
             }
         try:
-            return await self.get(embed_link, params=params, text=True)
+            return await self.get(embed_link, params=params, headers=headers, text=True)
         except Exceptions.PageNotFound:
             if episode == 0:
                 params["episode"] = "1"
             else:
                 params[episode] = "0"
-            return await self.get(embed_link, params=params, text=True)
+            return await self.get(embed_link, params=params, headers=headers, text=True)
 
     async def get_mpd_playlist(
         self, embed_link: str, episode: int, translation: str

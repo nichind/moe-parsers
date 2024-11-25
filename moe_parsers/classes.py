@@ -168,7 +168,10 @@ class Parser(object):
                     return await response.json()
                 except Exception:
                     return await response.text()
-
+        except OSError:
+            kwargs["retries"] = kwargs.get("retries", 0) + 1
+            await sleep(1)
+            return await self.request(path, **kwargs)
         finally:
             if kwargs.get("close", True):
                 await session.close()

@@ -44,7 +44,7 @@ class AnimegoAnime(Anime):
             kwargs["parser"] if "parser" in kwargs else AnimegoAnime()
         )
 
-    async def get_episodes(self) -> dict:
+    async def get_episodes(self) -> List[AnimegoEpisode]:
         if self.episodes:
             return self.episodes
         self.episodes: List[AnimegoEpisode] = await self.parser.get_episodes(self.url)
@@ -126,27 +126,11 @@ class AnimegoAnime(Anime):
             List[dict]: List of videos for each episode
         """
         for episode in self.episodes if self.episodes else await self.get_episodes():
-            try:
-                await episode.get_videos()
-            except Exception:
-                continue
+            pass
         results = [[] for _ in range(len(self.episodes))]
         for i, episode in enumerate(self.episodes):
-            if episode.videos is None or episode.status != "Released":
-                continue
-            if isinstance(self.episodes, list):
-                results[i] = episode.videos
-                continue
-            for video in episode.videos.values():
-                for player in video["players"]:
-                    results[i].append(
-                        {
-                            "translation_id": video["dub_id"],
-                            "content": player["url"],
-                            "provider_id": player["provider_id"],
-                            "provider_name": player["name"],
-                        }
-                    )
+            videos = await episode.get_videos()
+            results[i] = videos
         return results
 
 
