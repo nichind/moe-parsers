@@ -125,50 +125,83 @@ class Parser(object):
     async def request(
         self, path: str, request_type: Literal["get", "post"] = "get", **kwargs
     ) -> dict | str:
-        session = (
-            ClientSession(
-                headers=kwargs.get("headers", self.headers),
-                connector=TCPConnector(),
-            )
-            if not self.session or self.session.closed
-            else self.session
-        )
-        retries = kwargs.get("retries", 0)
-        if retries > 100:
-            raise Exceptions.TooManyRetries
+        if self.proxy:
+            import requests
 
-        try:
             url = (
                 f"{kwargs.get('base_url', self.base_url)}{path}"
                 if not path.startswith("http")
                 else path
             )
-            async with (
-                session.get(url, params=kwargs.get("params"))
-                if request_type == "get"
-                else session.post(url, data=kwargs.get("data"))
-            ) as response:
-                if response.status == 429:
-                    retry_after = response.headers.get("Retry-After", 1)
-                    await sleep(float(retry_after))
-                    kwargs["retries"] = retries + 1
+            proxies = {
+                "http": self.proxy,
+                "https": self.proxy
+            }
+            try:
+                if request_type == "get":
+                    response = requests.get(url, params=kwargs.get("params"), headers=kwargs.get("headers", self.headers), proxies=proxies)
+                else:
+                    response = requests.post(url, data=kwargs.get("data"), headers=kwargs.get("headers", self.headers), proxies=proxies)
+                
+                response.raise_for_status()
+                
+                if kwargs.get("text", False):
+                    return response.text
+                return response.json()
+            except requests.exceptions.RequestException as exc:
+                print(exc)
+                kwargs["retries"] = kwargs.get("retries", 0) + 1
+                if kwargs["retries"] <= 100:
+                    await sleep(1)
                     return await self.request(path, **kwargs)
-                elif response.status == 404:
-                    raise Exceptions.PageNotFound(f"Page not found: {url}")
-                try:
-                    if kwargs.get("text", False):
+                else:
+                    raise Exceptions.TooManyRetries
+        else:
+            session = (
+                ClientSession(
+                    headers=kwargs.get("headers", self.headers),
+                    connector=TCPConnector(),
+                )
+                if not self.session or self.session.closed
+                else self.session
+            )
+            retries = kwargs.get("retries", 0)
+            if retries > 100:
+                raise Exceptions.TooManyRetries
+
+            try:
+                url = (
+                    f"{kwargs.get('base_url', self.base_url)}{path}"
+                    if not path.startswith("http")
+                    else path
+                )
+                async with (
+                    session.get(url, params=kwargs.get("params"))
+                    if request_type == "get"
+                    else session.post(url, data=kwargs.get("data"))
+                ) as response:
+                    if response.status == 429:
+                        retry_after = response.headers.get("Retry-After", 1)
+                        await sleep(float(retry_after))
+                        kwargs["retries"] = retries + 1
+                        return await self.request(path, **kwargs)
+                    elif response.status == 404:
+                        raise Exceptions.PageNotFound(f"Page not found: {url}")
+                    try:
+                        if kwargs.get("text", False):
+                            return await response.text()
+                        return await response.json()
+                    except Exception:
                         return await response.text()
-                    return await response.json()
-                except Exception:
-                    return await response.text()
-        except OSError as exc:
-            print(exc) 
-            kwargs["retries"] = retries + 1
-            await sleep(1)
-            return await self.request(path, **kwargs)
-        finally:
-            if kwargs.get("close", True):
-                await session.close()
+            except OSError as exc:
+                print(exc)
+                kwargs["retries"] = retries + 1
+                await sleep(1)
+                return await self.request(path, **kwargs)
+            finally:
+                if kwargs.get("close", True):
+                    await session.close()
+
 
     async def soup(self, *args, **kwargs):
         return BeautifulSoup(
