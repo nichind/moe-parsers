@@ -1,10 +1,9 @@
-from aiohttp import ClientSession
+from aiohttp import ClientSession, TCPConnector
 from bs4 import BeautifulSoup
 from asyncio import sleep
 from io import BytesIO
 from typing import Literal, List, Self
 from datetime import datetime
-import requests
 import os
 
 
@@ -129,11 +128,11 @@ class Parser(object):
         session = (
             ClientSession(
                 headers=kwargs.get("headers", self.headers),
+                connector=TCPConnector(),
             )
             if not self.session or self.session.closed
             else self.session
         )
-
         retries = kwargs.get("retries", 0)
         if retries > 100:
             raise Exceptions.TooManyRetries
@@ -144,26 +143,6 @@ class Parser(object):
                 if not path.startswith("http")
                 else path
             )
-            if kwargs.get("proxy", self.proxy):
-                response = (
-                    requests.get(url, params=kwargs.get("params"), proxies={'http': kwargs.get("proxy", self.proxy)})
-                    if request_type == "get"
-                    else requests.post(url, data=kwargs.get("data"), proxies={'http': kwargs.get("proxy", self.proxy)})
-                )
-                if response.status_code == 429:
-                    retry_after = response.headers.get("Retry-After", 1)
-                    await sleep(float(retry_after))
-                    kwargs["retries"] = retries + 1
-                    return await self.request(path, **kwargs)
-                elif response.status_code == 404:
-                    raise Exceptions.PageNotFound(f"Page not found: {url}")
-
-                try:
-                    if kwargs.get("text", False):
-                        return response.text
-                    return response.json()
-                except Exception:
-                    return response.text
             async with (
                 session.get(url, params=kwargs.get("params"))
                 if request_type == "get"
@@ -176,14 +155,14 @@ class Parser(object):
                     return await self.request(path, **kwargs)
                 elif response.status == 404:
                     raise Exceptions.PageNotFound(f"Page not found: {url}")
-
                 try:
                     if kwargs.get("text", False):
                         return await response.text()
                     return await response.json()
                 except Exception:
                     return await response.text()
-        except OSError:
+        except OSError as exc:
+            print(exc) 
             kwargs["retries"] = retries + 1
             await sleep(1)
             return await self.request(path, **kwargs)
