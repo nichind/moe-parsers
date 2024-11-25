@@ -107,6 +107,12 @@ class AniboomAnime(Anime):
                 continue
         return [episode.videos for episode in self.episodes]
 
+    async def get_shikimori_id(self, url: str = None) -> str | None:
+        response = await self.parser.get('https://raw.githubusercontent.com/nichind/anime-chains/refs/heads/main/json/shikimori2animego.json')
+        data = loads(response)
+        for shikimori_id, _url in data.items():
+            if _url.strip() == (self.url if not url else url).strip():
+                return shikimori_id
 
 class AniboomParser(Parser):
     def __init__(self, params: ParserParams = None, **kwargs):
@@ -297,7 +303,7 @@ class AniboomParser(Parser):
                 )
             ]
         return episodes
-   
+
     async def get_info(self, link: str) -> dict:
         """
         Fetches and parses anime information from a given link.
@@ -451,7 +457,9 @@ class AniboomParser(Parser):
     async def get_embed_link(self, animego_id: int | str) -> str:
         params = {"_allow": "true"}
         headers = {"X-Requested-With": "XMLHttpRequest"}
-        response = await self.get(f"anime/{animego_id}/player", params=params, headers=headers)
+        response = await self.get(
+            f"anime/{animego_id}/player", params=params, headers=headers
+        )
         if response["status"] != "success":
             raise Exception(f'Unexpected status: {response["status"]}')
         soup = await self.soup(response["content"])
@@ -461,13 +469,10 @@ class AniboomParser(Parser):
         player_container = soup.find("div", {"id": "video-players"})
         player_link = player_container.find(
             "span", {"class": "video-player-toggle-item"}
-        ).get_attribute_list('data-player')[0]
+        ).get_attribute_list("data-player")[0]
         return "https:" + player_link[: player_link.rfind("?")]
 
     async def get_embed(self, embed_link: str, episode: int, translation: str) -> str:
-        headers = {
-            "Referer": "https://animego.org/"
-        }
         if episode != 0:
             params = {
                 "episode": str(episode),
@@ -480,7 +485,7 @@ class AniboomParser(Parser):
         try:
             return await self.get(embed_link, params=params, text=True)
         except Exceptions.PageNotFound:
-            if str(episode) == '0':
+            if str(episode) == "0":
                 params["episode"] = "1"
             else:
                 params[episode] = "0"

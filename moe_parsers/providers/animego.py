@@ -1,9 +1,9 @@
-from re import compile, sub
+from re import compile
 from typing import List
 from json import loads
-from datetime import datetime
-from ..classes import Anime, Parser, ParserParams, Exceptions, MPDPlaylist
-from .aniboom import AniboomParser
+from ..classes import Anime, Parser, ParserParams, Exceptions
+from .aniboom import AniboomParser, MPDPlaylist, AniboomAnime
+import asyncio
 
 
 class AnimegoEpisode(Anime.Episode):
@@ -23,20 +23,46 @@ class AnimegoEpisode(Anime.Episode):
             return []
         self.videos = await self.parser.get_videos(self.episode_id)
         res = []
-        for video in self.videos.values():
-            for player in video["players"]:
-                if player["name"] == "AniBoom":
-                    player['url'] = await AniboomParser().get_mpd_playlist(player['url'].split("?")[0], self.episode_num, compile(r"translation=(\d+)").search(player['url']).group(1)) 
+        async with asyncio.Semaphore(6):
+            tasks = []
+            for video in self.videos.values():
+                for player in video["players"]:
+                    if player["name"] == "AniBoom":
+                        tasks += [
+                            asyncio.create_task(
+                                self._get_mpdp_for_player(
+                                    player["url"].split("?")[0],
+                                    self.episode_num,
+                                    compile(r"translation=(\d+)")
+                                    .search(player["url"])
+                                    .group(1),
+                                    player["provider_id"],
+                                )
+                            )
+                        ]
+                    else:
+                        res += [{"translation_id": video["dub_id"],
+                            "content": player['url'],
+                            "provider_id": player['provider_id'],
+                            "provider_name": player['name'],
+                        }]
+            for task in asyncio.as_completed(tasks):
+                url = (await task)[0]
                 res += [
                     {
                         "translation_id": video["dub_id"],
-                        "content": player["url"],
-                        "provider_id": player["provider_id"],
-                        "provider_name": player["name"],
+                        "content": url,
+                        "provider_id": player['provider_id'],
+                        "provider_name": "AniBoom",
                     }
                 ]
         self.videos = res
         return self.videos
+
+    async def _get_mpdp_for_player(
+        self, url: str, episode_num: int, translation_id: str, provider_id: str
+    ) -> MPDPlaylist:
+        return await AniboomParser().get_mpd_playlist(url, episode_num, translation_id),
 
 
 class AnimegoAnime(Anime):
@@ -134,6 +160,9 @@ class AnimegoAnime(Anime):
             videos = await episode.get_videos()
             results[i] = videos
         return results
+    
+    async def get_shikimori_id(self, url: str = None) -> str | None:
+        return await AniboomAnime().get_shikimori_id(self.url if not url else url)
 
 
 class AnimegoParser(Parser):
