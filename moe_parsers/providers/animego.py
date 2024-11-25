@@ -25,6 +25,8 @@ class AnimegoEpisode(Anime.Episode):
         res = []
         for video in self.videos.values():
             for player in video["players"]:
+                if player["name"] == "AniBoom":
+                    player['url'] = await AniboomParser().get_mpd_playlist(player['url'].split("?")[0], self.episode_num, compile(r"translation=(\d+)").search(player['url']).group(1)) 
                 res += [
                     {
                         "translation_id": video["dub_id"],

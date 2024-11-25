@@ -16,7 +16,7 @@ class AniboomEpisode(Anime.Episode):
         for video in self.videos:
             if video["translation_id"] == translation_id and video["content"]:
                 return video["content"]
-        content = await self.parser.get(
+        content = await self.parser.get_mpd_content(
             self.anime_id, self.episode_num, translation_id
         )
         result = {"translation_id": translation_id, "content": content}
@@ -297,7 +297,7 @@ class AniboomParser(Parser):
                 )
             ]
         return episodes
-
+   
     async def get_info(self, link: str) -> dict:
         """
         Fetches and parses anime information from a given link.
@@ -450,7 +450,8 @@ class AniboomParser(Parser):
 
     async def get_embed_link(self, animego_id: int | str) -> str:
         params = {"_allow": "true"}
-        response = await self.get(f"anime/{animego_id}/player", params=params)
+        headers = {"X-Requested-With": "XMLHttpRequest"}
+        response = await self.get(f"anime/{animego_id}/player", params=params, headers=headers)
         if response["status"] != "success":
             raise Exception(f'Unexpected status: {response["status"]}')
         soup = await self.soup(response["content"])
@@ -460,15 +461,13 @@ class AniboomParser(Parser):
         player_container = soup.find("div", {"id": "video-players"})
         player_link = player_container.find(
             "span", {"class": "video-player-toggle-item"}
-        ).get("data-player")
+        ).get_attribute_list('data-player')[0]
         return "https:" + player_link[: player_link.rfind("?")]
 
     async def get_embed(self, embed_link: str, episode: int, translation: str) -> str:
         headers = {
-            "Origin": "https://aniboom.one",
-            "Referer": "https://aniboom.one/",
+            "Referer": "https://animego.org/"
         }
-        
         if episode != 0:
             params = {
                 "episode": str(episode),
@@ -479,13 +478,13 @@ class AniboomParser(Parser):
                 "translation": str(translation),
             }
         try:
-            return await self.get(embed_link, params=params, headers=headers, text=True)
+            return await self.get(embed_link, params=params, text=True)
         except Exceptions.PageNotFound:
-            if episode == 0:
+            if str(episode) == '0':
                 params["episode"] = "1"
             else:
                 params[episode] = "0"
-            return await self.get(embed_link, params=params, headers=headers, text=True)
+            return await self.get(embed_link, params=params, text=True)
 
     async def get_mpd_playlist(
         self, embed_link: str, episode: int, translation: str
