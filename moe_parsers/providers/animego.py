@@ -41,18 +41,21 @@ class AnimegoEpisode(Anime.Episode):
                             )
                         ]
                     else:
-                        res += [{"translation_id": video["dub_id"],
-                            "content": player['url'],
-                            "provider_id": player['provider_id'],
-                            "provider_name": player['name'],
-                        }]
+                        res += [
+                            {
+                                "translation_id": video["dub_id"],
+                                "content": player["url"],
+                                "provider_id": player["provider_id"],
+                                "provider_name": player["name"],
+                            }
+                        ]
             for task in asyncio.as_completed(tasks):
                 url = (await task)[0]
                 res += [
                     {
                         "translation_id": video["dub_id"],
                         "content": url,
-                        "provider_id": player['provider_id'],
+                        "provider_id": player["provider_id"],
                         "provider_name": "AniBoom",
                     }
                 ]
@@ -62,7 +65,9 @@ class AnimegoEpisode(Anime.Episode):
     async def _get_mpdp_for_player(
         self, url: str, episode_num: int, translation_id: str, provider_id: str
     ) -> MPDPlaylist:
-        return await AniboomParser().get_mpd_playlist(url, episode_num, translation_id),
+        return (
+            await AniboomParser().get_mpd_playlist(url, episode_num, translation_id),
+        )
 
 
 class AnimegoAnime(Anime):
@@ -160,7 +165,7 @@ class AnimegoAnime(Anime):
             videos = await episode.get_videos()
             results[i] = videos
         return results
-    
+
     async def get_shikimori_id(self, url: str = None) -> str | None:
         return await AniboomAnime().get_shikimori_id(self.url if not url else url)
 

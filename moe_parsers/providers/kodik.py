@@ -1,7 +1,15 @@
 from typing import List, Literal
 from json import loads
 from base64 import b64decode
-from ..classes import Anime, Parser, ParserParams, Exceptions, MPDPlaylist
+from ..classes import Anime, Parser, ParserParams, Exceptions, MPDPlaylist, Media
+
+
+class TempKodikVideo(Media):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.parser: KodikParser = (
+            kwargs["parser"] if "parser" in kwargs else KodikParser()
+        )
 
 
 class KodikAnime(Anime):

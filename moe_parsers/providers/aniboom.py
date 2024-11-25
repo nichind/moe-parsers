@@ -108,11 +108,14 @@ class AniboomAnime(Anime):
         return [episode.videos for episode in self.episodes]
 
     async def get_shikimori_id(self, url: str = None) -> str | None:
-        response = await self.parser.get('https://raw.githubusercontent.com/nichind/anime-chains/refs/heads/main/json/shikimori2animego.json')
+        response = await self.parser.get(
+            "https://raw.githubusercontent.com/nichind/anime-chains/refs/heads/main/json/shikimori2animego.json"
+        )
         data = loads(response)
         for shikimori_id, _url in data.items():
             if _url.strip() == (self.url if not url else url).strip():
                 return shikimori_id
+
 
 class AniboomParser(Parser):
     def __init__(self, params: ParserParams = None, **kwargs):
