@@ -125,7 +125,11 @@ class Parser(object):
     async def request(
         self, path: str, request_type: Literal["get", "post"] = "get", **kwargs
     ) -> dict | str:
-        if self.proxy:
+        retries = kwargs.get("retries", 0)
+        if retries > 5:
+            raise Exceptions.TooManyRetries
+
+        if self.proxy or kwargs.get("proxy", False):
             import requests
 
             url = (
@@ -134,41 +138,42 @@ class Parser(object):
                 else path
             )
             proxies = {
-                "http": self.proxy,
-                "https": self.proxy
+                "http": self.proxy or kwargs.get("proxy", False),
+                "https": self.proxy or kwargs.get("proxy", False)
             }
             try:
                 if request_type == "get":
-                    response = requests.get(url, params=kwargs.get("params"), headers=kwargs.get("headers", self.headers), proxies=proxies)
+                    response = requests.get(
+                        url,
+                        params=kwargs.get("params"),
+                        headers=kwargs.get("headers", self.headers),
+                        proxies=proxies,
+                    )
                 else:
-                    response = requests.post(url, data=kwargs.get("data"), headers=kwargs.get("headers", self.headers), proxies=proxies)
-                
-                response.raise_for_status()
-                
+                    response = requests.post(
+                        url,
+                        data=kwargs.get("data"),
+                        headers=kwargs.get("headers", self.headers),
+                        proxies=proxies,
+                    )
+                if response.status_code == 429:
+                    kwargs["retries"] =  retries + 1
+                    return await self.request(path, **kwargs)
+                elif response.status_code == 404:
+                    raise Exceptions.PageNotFound(f"Page not found: {url}")
                 if kwargs.get("text", False):
                     return response.text
                 return response.json()
-            except requests.exceptions.RequestException as exc:
-                print(exc)
-                kwargs["retries"] = kwargs.get("retries", 0) + 1
-                if kwargs["retries"] <= 100:
-                    await sleep(1)
-                    return await self.request(path, **kwargs)
-                else:
-                    raise Exceptions.TooManyRetries
+            except requests.exceptions.ProxyError as exc:
+                raise Exceptions.ConnectionError(f"Proxy error: {exc}")
         else:
             session = (
                 ClientSession(
                     headers=kwargs.get("headers", self.headers),
-                    connector=TCPConnector(),
                 )
                 if not self.session or self.session.closed
                 else self.session
             )
-            retries = kwargs.get("retries", 0)
-            if retries > 100:
-                raise Exceptions.TooManyRetries
-
             try:
                 url = (
                     f"{kwargs.get('base_url', self.base_url)}{path}"
@@ -193,8 +198,7 @@ class Parser(object):
                         return await response.json()
                     except Exception:
                         return await response.text()
-            except OSError as exc:
-                print(exc)
+            except OSError:
                 kwargs["retries"] = retries + 1
                 await sleep(1)
                 return await self.request(path, **kwargs)
