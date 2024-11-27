@@ -22,6 +22,6 @@ setup(
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ],
-    python_requires=">=3.10",
+    python_requires=">=3.11",
     keywords=["aniboom", "kodik", "animego", "moe", "parser", "anime", "async"],
 )
