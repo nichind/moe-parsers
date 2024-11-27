@@ -1,6 +1,5 @@
 from re import compile
 from typing import List
-from json import loads
 from ..classes import Anime, Parser, ParserParams, Exceptions
 from .aniboom import AniboomParser, MPDPlaylist, AniboomAnime
 import asyncio
@@ -74,7 +73,7 @@ class AnimegoAnime(Anime):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.parser: AnimegoParser = (
-            kwargs["parser"] if "parser" in kwargs else AnimegoAnime()
+            kwargs["parser"] if "parser" in kwargs else AnimegoParser()
         )
 
     async def get_episodes(self) -> List[AnimegoEpisode]:

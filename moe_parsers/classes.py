@@ -1,4 +1,4 @@
-from aiohttp import ClientSession, TCPConnector
+from aiohttp import ClientSession
 from bs4 import BeautifulSoup
 from asyncio import sleep
 from io import BytesIO
@@ -45,7 +45,7 @@ class M3U8Playlist(Media):
     def __init__(self, url: str, content: str, **kwargs):
         super().__init__(url, **kwargs)
         self.content = content
-    
+
     def buffer(self) -> BytesIO:
         buffer = BytesIO()
         buffer.write(self.content)

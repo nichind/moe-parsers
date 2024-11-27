@@ -1,4 +1,4 @@
-from .classes import Parser, ParserParams
+from .classes import Parser
 
 
 class AutoParser(Parser):

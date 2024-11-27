@@ -10,14 +10,20 @@ class KodikVideo:
         Kodik player cloud video, file access is temporary, should be used only for downloading or otherwise be ready for 403 (Forbidden)
         """
         self.cloud_url: str = kwargs["cloud_url"] if "cloud_url" in kwargs else None
-        self.max_quality: int = kwargs["max_quality"] if "max_quality" in kwargs else None
+        self.max_quality: int = (
+            kwargs["max_quality"] if "max_quality" in kwargs else None
+        )
         self.iframe: str = kwargs["iframe"] if "iframe" in kwargs else None
-        self.episode_num: int = kwargs["episode_num"] if "episode_num" in kwargs else None
-        self.translation_id: int = kwargs["translation_id"] if "translation_id" in kwargs else None
+        self.episode_num: int = (
+            kwargs["episode_num"] if "episode_num" in kwargs else None
+        )
+        self.translation_id: int = (
+            kwargs["translation_id"] if "translation_id" in kwargs else None
+        )
         self.parser: KodikParser = (
             kwargs["parser"] if "parser" in kwargs else KodikParser()
         )
-        
+
     async def get_m3u8(self) -> str:
         return await self.parser.get_m3u8(self.cloud_url)
 
@@ -36,10 +42,10 @@ class KodikAnime(Anime):
         self.parser: KodikParser = (
             kwargs["parser"] if "parser" in kwargs else KodikParser()
         )
-        
+
     async def get_info(self) -> dict:
         return await self.parser.get_info(self.anime_id, self.id_type)
-    
+
     async def get_videos(self) -> List[KodikVideo]:
         pass
 
@@ -109,7 +115,7 @@ class KodikParser(Parser):
             search_params["title"] = query
 
         response = await self.post("https://kodikapi.com/search", data=search_params)
-        
+
         if not response["total"]:
             return []
 
@@ -254,14 +260,23 @@ class KodikParser(Parser):
         media_hash = None
         media_id = None
         for translation in container.find_all("option"):
-            if str(translation.get_attribute_list("data-id")[0]) == str(translation_id) or translation_id == "0":
+            if (
+                str(translation.get_attribute_list("data-id")[0]) == str(translation_id)
+                or translation_id == "0"
+            ):
                 media_hash = translation.get_attribute_list("data-media-hash")[0]
                 media_id = translation.get_attribute_list("data-media-id")[0]
                 break
         url = f"https://kodik.info/serial/{media_id}/{media_hash}/720p?min_age=16&first_url=false&season=1&episode={episode_num}"
         return url
 
-    async def get_video(self, anime_id: str | int, id_type: Literal["shikimori", "kinopoisk", "imdb"], episode_num: int = None, translation_id: str | int = "0") -> KodikVideo:
+    async def get_video(
+        self,
+        anime_id: str | int,
+        id_type: Literal["shikimori", "kinopoisk", "imdb"],
+        episode_num: int = None,
+        translation_id: str | int = "0",
+    ) -> KodikVideo:
         link = await self._link_to_info(anime_id, id_type)
         data = await self.get(link, text=True)
         urlParams = data[data.find("urlParams") + 13 :]
@@ -276,13 +291,20 @@ class KodikParser(Parser):
         video_type = video_type[: video_type.find("'")]
         video_hash = hash_container[hash_container.find(".hash = '") + 9 :]
         video_hash = video_hash[: video_hash.find("'")]
-        video_id =  hash_container[hash_container.find('.id = \'')+7:]
+        video_id = hash_container[hash_container.find(".id = '") + 7 :]
         video_id = video_id[: video_id.find("'")]
         link_data, max_quality = await self._get_link_with_data(
             video_type, video_hash, video_id, urlParams, script_url
         )
         download_url = str(link_data).replace("https://", "")
-        return KodikVideo(cloud_url='https:' + download_url[2:-26], max_quality=max_quality, iframe=iframe, episode_num=episode_num, translation_id=translation_id, parser=self)
+        return KodikVideo(
+            cloud_url="https:" + download_url[2:-26],
+            max_quality=max_quality,
+            iframe=iframe,
+            episode_num=episode_num,
+            translation_id=translation_id,
+            parser=self,
+        )
 
     async def _get_link_with_data(
         self,
@@ -343,18 +365,21 @@ class KodikParser(Parser):
 
     async def get_m3u8(self, cloud_url: str) -> M3U8Playlist:
         page_content = await self.get(cloud_url, text=True)
-        for quality in ['720', '480', '360']:
-            if f'{quality}.mp4' in page_content:
-                playlist_content = await self.get(f'{cloud_url}{quality}.mp4:hls:manifest.m3u8', text=True)
+        for quality in ["720", "480", "360"]:
+            if f"{quality}.mp4" in page_content:
+                playlist_content = await self.get(
+                    f"{cloud_url}{quality}.mp4:hls:manifest.m3u8", text=True
+                )
                 break
         else:
             raise ValueError("No valid quality found in page content.")
 
-        for quality in ['720', '480', '360']:
-            if f'{quality}.mp4' in playlist_content:
-                filename = f'./{quality}.mp4:hls'
-                playlist_content = playlist_content.replace(filename, filename.replace('./', cloud_url))
+        for quality in ["720", "480", "360"]:
+            if f"{quality}.mp4" in playlist_content:
+                filename = f"./{quality}.mp4:hls"
+                playlist_content = playlist_content.replace(
+                    filename, filename.replace("./", cloud_url)
+                )
                 break
 
         return M3U8Playlist(cloud_url, playlist_content)
-    
