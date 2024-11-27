@@ -8,10 +8,10 @@ def readme():
 
 setup(
     name="moe-parsers",
-    version="2024.11.5",
+    version="2024.11.6",
     author="nichind",
     author_email="nichinddev@gmail.com",
-    description="Async aniboom/kodik player parser",
+    description="Parsing anime and getting video made easy",
     long_description=readme(),
     long_description_content_type="text/markdown",
     url="https://github.com/nichind/moe-parsers",

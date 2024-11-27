@@ -41,6 +41,18 @@ class MPDPlaylist(Media):
         return buffer
 
 
+class M3U8Playlist(Media):
+    def __init__(self, url: str, content: str, **kwargs):
+        super().__init__(url, **kwargs)
+        self.content = content
+    
+    def buffer(self) -> BytesIO:
+        buffer = BytesIO()
+        buffer.write(self.content)
+        buffer.seek(0)
+        return buffer
+
+
 class ParserParams:
     def __init__(
         self,
@@ -139,7 +151,7 @@ class Parser(object):
             )
             proxies = {
                 "http": self.proxy or kwargs.get("proxy", False),
-                "https": self.proxy or kwargs.get("proxy", False)
+                "https": self.proxy or kwargs.get("proxy", False),
             }
             try:
                 if request_type == "get":
@@ -157,7 +169,7 @@ class Parser(object):
                         proxies=proxies,
                     )
                 if response.status_code == 429:
-                    kwargs["retries"] =  retries + 1
+                    kwargs["retries"] = retries + 1
                     return await self.request(path, **kwargs)
                 elif response.status_code == 404:
                     raise Exceptions.PageNotFound(f"Page not found: {url}")
@@ -205,7 +217,6 @@ class Parser(object):
             finally:
                 if kwargs.get("close", True):
                     await session.close()
-
 
     async def soup(self, *args, **kwargs):
         return BeautifulSoup(
