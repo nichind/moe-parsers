@@ -495,9 +495,9 @@ class AniboomParser(Parser):
             return await self.get(embed_link, params=params, text=True)
 
     async def get_mpd_playlist(
-        self, embed_link: str, episode: int, translation: str
+        self, embed_link: str, episode: int, translation_id: str
     ) -> MPDPlaylist:
-        embed = await self.get_embed(embed_link, episode, translation)
+        embed = await self.get_embed(embed_link, episode, translation_id)
         soup = await self.soup(embed)
         data = loads(soup.find("div", {"id": "video"}).get("data-parameters"))
         media_src = loads(data["dash"])["src"]

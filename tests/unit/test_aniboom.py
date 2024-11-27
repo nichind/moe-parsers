@@ -1,11 +1,10 @@
 import pytest
-from moe_parsers.providers.animego import AnimegoParser, AnimegoEpisode, AnimegoAnime
+from moe_parsers.providers.aniboom import AniboomParser, AniboomAnime, AniboomEpisode
 
 
-# Aniboom Parser Tests
 @pytest.mark.asyncio
 async def test_animego_search():
-    parser = AnimegoParser()
+    parser = AniboomParser()
     res = await parser.search("plastic memoires")
     assert len(res) > 0
     assert "plastic memories" in res[0].orig_title.lower()
@@ -13,7 +12,7 @@ async def test_animego_search():
 
 @pytest.mark.asyncio
 async def test_animego_get_info():
-    parser = AnimegoParser()
+    parser = AniboomParser()
     data = await parser.get_info(
         "https://animego.org/anime/atri-moi-dorogie-momenty-2595"
     )
@@ -22,32 +21,32 @@ async def test_animego_get_info():
 
 @pytest.mark.asyncio
 async def test_animego_get_episodes():
-    parser = AnimegoParser()
+    parser = AniboomParser()
     episodes = await parser.get_episodes(
         "https://animego.org/anime/atri-moi-dorogie-momenty-2595"
     )
     assert len(episodes) == 13
-    assert isinstance(episodes[0], AnimegoEpisode)
+    assert isinstance(episodes[0], AniboomEpisode)
 
 
 @pytest.mark.asyncio
 async def test_animego_get_translations():
-    parser = AnimegoParser()
+    parser = AniboomParser()
     translations = await parser.get_translations("2595")
     assert len(translations) >= 1
 
 
 @pytest.mark.asyncio
-async def test_animego_get_videos():
-    parser = AnimegoParser()
-    videos = await parser.get_videos("30387")
-    assert len(videos) >= 1
+async def test_animego_get_playlist():
+    parser = AniboomParser()
+    playlist = await parser.get_mpd_content("2318", 1, '1')
+    assert playlist.content >= 256
 
 
 @pytest.mark.asyncio
 async def test_animego_get_shikimori_id():
     assert (
-        await AnimegoAnime().get_shikimori_id(
+        await AniboomAnime().get_shikimori_id(
             "https://animego.org/anime/plastikovye-vospominaniya-2318"
         )
         == "27775"
