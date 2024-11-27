@@ -1,7 +1,5 @@
 import pytest
-from moe_parsers.providers.aniboom import AniboomParser
 from moe_parsers.providers.animego import AnimegoParser, AnimegoEpisode, AnimegoAnime
-from moe_parsers.providers.kodik import KodikParser
 
 
 # Aniboom Parser Tests
