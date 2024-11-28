@@ -90,8 +90,6 @@ class AnimegoAnime(Anime):
         return self.translations
 
     async def get_info(self) -> dict:
-        if self.data:
-            return self.data
         self.data = await self.parser.get_info(self.url)
         self.episodes = self.data.get("episodes", [])
         for i, episode in enumerate(self.episodes):

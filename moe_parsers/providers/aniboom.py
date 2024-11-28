@@ -25,7 +25,7 @@ class AniboomEpisode(Anime.Episode):
         return content
 
     async def get_videos(self) -> List[dict]:
-        for translation in await self.parser.get_translations(self.anime_id):
+        for translation in self.translations if self.translations else (await self.parser.get_translations(self.anime_id)):
             try:
                 await self.get_video(translation_id=translation["translation_id"])
             except Exception as exc:
@@ -44,7 +44,7 @@ class AniboomAnime(Anime):
         if self.episodes:
             return self.episodes
         self.episodes: List[AniboomEpisode] = await self.parser.get_episodes(self.url)
-        self.total_episodes = int(self.episodes[-1].get("num", 0))
+        self.total_episodes = int(self.episodes[-1].get("episode_num", 0)) or len(self.episodes)
         return self.episodes
 
     async def get_translations(self) -> dict:
@@ -54,8 +54,6 @@ class AniboomAnime(Anime):
         return self.translations
 
     async def get_info(self) -> dict:
-        if self.data:
-            return self.data
         self.data = await self.parser.get_info(self.url)
         self.episodes = self.data.get("episodes", [])
         self.translations = self.data["translations"]
@@ -334,7 +332,7 @@ class AniboomParser(Parser):
         anime_data = {}
         response = await self.get(link)
         soup = await self.soup(response)
-
+        
         anime_data["link"] = link
         anime_data["animego_id"] = link[link.rfind("-") + 1 :]
         anime_data["title"] = (
