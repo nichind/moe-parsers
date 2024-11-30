@@ -25,7 +25,7 @@ class AniboomEpisode(Anime.Episode):
         return content
 
     async def get_videos(self) -> List[dict]:
-        for translation in self.translations if self.translations else (await self.parser.get_translations(self.anime_id)):
+        for translation in await self.parser.get_translations(self.anime_id):
             try:
                 await self.get_video(translation_id=translation["translation_id"])
             except Exception as exc:
@@ -98,7 +98,7 @@ class AniboomAnime(Anime):
         Returns:
             List[dict]: List of videos for each episode
         """
-        for episode in self.episodes if self.episodes else await self.get_episodes():
+        for episode in self.episodes if (self.episodes and isinstance(self.episodes[0], AniboomEpisode)) else await self.get_episodes():
             try:
                 await episode.get_videos()
             except Exception:
