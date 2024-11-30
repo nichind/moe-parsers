@@ -182,7 +182,7 @@ class AnimegoParser(Parser):
                 "X-Requested-With": "XMLHttpRequest",
                 "Referer": "https://animego.org/",
             },
-            language="ru",
+            language=Parser.Language.RU,
         )
         super().__init__(self.params, **kwargs)
         self._parser = AniboomParser(self.params, **kwargs)

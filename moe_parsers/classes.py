@@ -82,7 +82,8 @@ class Parser(object):
         self.session = None
         self.proxy = None
         self.proxy_auth = None
-        self.language = None
+        self.language: str = self.Language.UNKNOWN
+        self.best_usage: str = None
 
         try:
             import lxml
@@ -98,7 +99,8 @@ class Parser(object):
         for kwarg in kwargs:
             setattr(self, kwarg, kwargs[kwarg])
 
-    def list_providers(**filters) -> List[Self]:
+    @staticmethod
+    def list_providers(**filters: dict) -> List[Self]:
         """
         List all supported providers by filters
         """
@@ -222,6 +224,19 @@ class Parser(object):
         return BeautifulSoup(
             *args, **kwargs, features="lxml" if self.lxml else "html.parser"
         )
+
+    class Language:
+        RU = "ru"
+        EN = "en"
+        JP = "jp"
+        UNKNOWN = "unknown"
+
+    class Usage:
+        ALL = "full"
+        WATCH = "watch"
+        DOWNLOAD = "download"
+        SEARCH = "search"
+        UNKNOWN = "unknown"
 
     def __repr__(self):
         return f"""<{self.__class__.__name__} "{self.base_url}">"""

@@ -131,7 +131,7 @@ class AniboomParser(Parser):
         Args:
             **kwargs: Additional keyword arguments to pass to the parent Parser class.
 
-        Original code reference: https://github.com/YaNesyTortiK/AnimeParsers
+        Original parser code reference: https://github.com/YaNesyTortiK/AnimeParsers
         """
         self.params = ParserParams(
             base_url="https://animego.org/",
@@ -140,7 +140,7 @@ class AniboomParser(Parser):
                 "X-Requested-With": "XMLHttpRequest",
                 "Referer": "https://animego.org/",
             },
-            language="ru",
+            language=Parser.Language.RU,
         )
         if params:
             self.params = params

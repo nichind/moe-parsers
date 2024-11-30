@@ -4,7 +4,7 @@ from base64 import b64decode
 from ..classes import Anime, Parser, ParserParams, Exceptions, M3U8Playlist, Media
 
 
-class KodikVideo:
+class KodikVideo(Media):
     def __init__(self, **kwargs):
         """
         Kodik player cloud video, file access is temporary, should be used only for downloading or otherwise be ready for 403 (Forbidden)
@@ -66,7 +66,7 @@ class KodikParser(Parser):
         Args:
             **kwargs: Additional keyword arguments to pass to the parent Parser class.
 
-        Original code reference: https://github.com/YaNesyTortiK/AnimeParsers
+        Original parser code reference: https://github.com/YaNesyTortiK/AnimeParsers
         """
         self.params = ParserParams(
             base_url="https://kodik.info/",
@@ -74,7 +74,7 @@ class KodikParser(Parser):
                 "Accept": "application/json, text/javascript, */*; q=0.01",
                 "X-Requested-With": "XMLHttpRequest",
             },
-            language="ru",
+            language=Parser.Language.RU,
         )
         self.token = None
         super().__init__(self.params, **kwargs)
@@ -83,8 +83,7 @@ class KodikParser(Parser):
         anime = KodikAnime(
             orig_title=kwargs["title_orig"],
             title=kwargs["title"],
-            all_titles=[]
-            + [kwargs.get("other_title", [])]
+            all_titles=kwargs.get("other_title", [])
             + kwargs.get("other_titles_en", [])
             + kwargs.get("other_titles_jp", []),
             anime_id=kwargs["shikimori_id"],
@@ -161,7 +160,7 @@ class KodikParser(Parser):
                         "id": result["id"],
                         "title": result["title"],
                         "title_orig": result.get("title_orig"),
-                        "other_title": result.get("other_title"),
+                        "other_title": (result.get("other_title", [])).split(" / "),
                         "type": result.get("type"),
                         "year": result.get("year"),
                         "screenshots": result.get("screenshots"),
@@ -171,9 +170,9 @@ class KodikParser(Parser):
                         "worldart_link": result.get("worldart_link"),
                         "link": result.get("link"),
                         "all_status": result.get("all_status"),
-                        "description": result.get("description"),
-                        "other_titles_en": result.get("other_titles_en"),
-                        "other_titles_jp": result.get("other_titles_jp"),
+                        "description": result.get("material_data", {}).get("description", None),
+                        "other_titles_en": result.get("other_titles_en", []),
+                        "other_titles_jp": result.get("other_titles_jp", []),
                     }
                 )
                 added_titles.add(result["title"])
