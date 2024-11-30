@@ -1,7 +1,7 @@
 from typing import List, Literal
 from json import loads
 from base64 import b64decode
-from ..classes import Anime, Parser, ParserParams, Exceptions, M3U8Playlist
+from ..classes import Anime, Parser, ParserParams, Exceptions, M3U8Playlist, Media
 
 
 class KodikVideo:
@@ -26,6 +26,14 @@ class KodikVideo:
 
     async def get_m3u8(self) -> str:
         return await self.parser.get_m3u8(self.cloud_url)
+
+
+class KodikIframe(Media):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.parser: KodikParser = (
+            kwargs["parser"] if "parser" in kwargs else KodikParser()
+        )
 
 
 class KodikEpisode(Anime.Episode):
@@ -75,12 +83,32 @@ class KodikParser(Parser):
         anime = KodikAnime(
             orig_title=kwargs["title_orig"],
             title=kwargs["title"],
+            all_titles=[]
+            + [kwargs.get("other_title", [])]
+            + kwargs.get("other_titles_en", [])
+            + kwargs.get("other_titles_jp", []),
             anime_id=kwargs["shikimori_id"],
             url="https:" + kwargs["link"],
             parser=self,
             id_type="shikimori",
             language=self.language,
             data=kwargs,
+            status=Anime.Status.COMPLETED
+            if kwargs.get("all_status", "") == "released"
+            else (
+                Anime.Status.ONGOING
+                if kwargs.get("all_status", "") == "ongoing"
+                else (Anime.Status.UNKNOWN)
+            ),
+            year=kwargs.get("year", None),
+            description=kwargs.get("description", None),
+            type=Anime.Type.TV
+            if kwargs.get("anime_kind", "") == "tv"
+            else (
+                Anime.Type.MOVIE
+                if kwargs.get("anime_kind", "") == "movie"
+                else (Anime.Type.UNKNOWN)
+            ),
         )
         return anime
 
@@ -142,6 +170,10 @@ class KodikParser(Parser):
                         "imdb_id": result.get("imdb_id"),
                         "worldart_link": result.get("worldart_link"),
                         "link": result.get("link"),
+                        "all_status": result.get("all_status"),
+                        "description": result.get("description"),
+                        "other_titles_en": result.get("other_titles_en"),
+                        "other_titles_jp": result.get("other_titles_jp"),
                     }
                 )
                 added_titles.add(result["title"])

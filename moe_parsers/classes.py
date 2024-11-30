@@ -231,6 +231,7 @@ class Anime(object):
     def __init__(self, *args, **kwargs):
         self.orig_title: str = None
         self.title: str = None
+        self.all_titles: List[str] = None
         self.anime_id: int | str = None
         self.id_type: str = None
         self.url: str = None
@@ -243,6 +244,7 @@ class Anime(object):
         self.data: dict = None
         self.language: str = None
         self.status: str = self.Status.UNKNOWN
+        self.description: str = None
         self.args = args
         for kwarg in kwargs:
             setattr(self, kwarg, kwargs[kwarg])

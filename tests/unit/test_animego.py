@@ -35,6 +35,7 @@ async def test_animego_get_translations():
     translations = await parser.get_translations("2595")
     assert len(translations) >= 1
 
+
 @pytest.mark.asyncio
 async def test_animego_get_episode_videos():
     parser = AnimegoParser()
@@ -44,6 +45,7 @@ async def test_animego_get_episode_videos():
     for episode in anime.episodes:
         assert len(await episode.get_videos()) > 0
         break
+
 
 @pytest.mark.asyncio
 async def test_animego_get_videos():

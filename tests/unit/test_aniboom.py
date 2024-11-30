@@ -17,8 +17,8 @@ async def test_aniboom_get_info():
         "https://animego.org/anime/atri-moi-dorogie-momenty-2595"
     )
     assert data["animego_id"] == "2595"
-    assert data["status"] == 'Вышел'
-    assert len(data['translations']) >= 1
+    assert data["status"] == "Вышел"
+    assert len(data["translations"]) >= 1
 
 
 @pytest.mark.asyncio
@@ -29,8 +29,8 @@ async def test_aniboom_get_episodes():
     )
     assert len(episodes) == 13
     assert isinstance(episodes[0], AniboomEpisode)
-    
-    
+
+
 @pytest.mark.asyncio
 async def test_aniboom_get_episode_videos():
     parser = AniboomParser()
@@ -51,7 +51,7 @@ async def test_aniboom_get_translations():
 @pytest.mark.asyncio
 async def test_aniboom_get_playlist():
     parser = AniboomParser()
-    playlist = await parser.get_mpd_content("2318", 1, '1')
+    playlist = await parser.get_mpd_content("2318", 1, "1")
     assert len(playlist.content) >= 256
 
 
@@ -61,5 +61,5 @@ async def test_aniboom_get_shikimori_id():
         await AniboomAnime().get_shikimori_id(
             "https://animego.org/anime/plastikovye-vospominaniya-2318"
         )
-        == "    "
+        == "27775"
     )
