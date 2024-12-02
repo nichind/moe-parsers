@@ -8,7 +8,7 @@ def readme():
 
 setup(
     name="moe-parsers",
-    version="2024.11.6",
+    version="2024.12.1",
     author="nichind",
     author_email="nichinddev@gmail.com",
     description="Parsing anime and getting video made easy",
