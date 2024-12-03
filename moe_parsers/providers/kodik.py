@@ -236,11 +236,11 @@ class KodikParser(Parser):
 
         return animes
 
-    async def translations(self, anime_id: str, id_type: str) -> list:
+    async def translations(self, anime_id: str, id_type: Literal["shikimori", "kinopoisk", "imdb"]) -> list:
         data = await self.get_info(anime_id, id_type)
         return data["translations"]
 
-    async def episode_count(self, anime_id: str, id_type: str) -> int:
+    async def episode_count(self, anime_id: str, id_type: Literal["shikimori", "kinopoisk", "imdb"]) -> int:
         data = await self.get_info(anime_id, id_type)
         return data["episode_count"]
 
@@ -264,7 +264,7 @@ class KodikParser(Parser):
             raise Exceptions.PlayerBlocked(f'Нет данных по {id_type} id "{id}"')
         return "https:" + data["link"]
 
-    async def get_info(self, anime_id: str, id_type: str) -> dict:
+    async def get_info(self, anime_id: str, id_type: Literal["shikimori", "kinopoisk", "imdb"]) -> dict:
         link = await self._link_to_info(anime_id, id_type)
         data = await self.get(link, text=True)
         soup = await self.soup(data)
