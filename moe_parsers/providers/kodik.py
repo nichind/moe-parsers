@@ -42,7 +42,20 @@ class KodikEpisode(Anime.Episode):
         self.parser: KodikParser = (
             kwargs["parser"] if "parser" in kwargs else KodikParser()
         )
-
+        
+    async def get_video(self, translation_id: str | int = 0) -> KodikVideo | KodikIframe:
+        iframe = KodikIframe(url=await self.parser.get_iframe(self.anime_id, self.id_type, self.episode_num, translation_id))
+        if iframe not in self.videos:
+            self.videos += [iframe]
+        return iframe
+    
+    async def get_videos(self, translations: list) -> List[KodikIframe]:
+        for translation in translations:
+            iframe = await self.get_video(translation['translation_id'])
+            if iframe not in self.videos:
+                self.videos += [iframe]
+        return self.videos 
+    
 
 class KodikAnime(Anime):
     def __init__(self, *args, **kwargs):
@@ -54,9 +67,32 @@ class KodikAnime(Anime):
     async def get_info(self) -> dict:
         return await self.parser.get_info(self.anime_id, self.id_type)
 
-    async def get_videos(self) -> List[KodikVideo]:
-        pass
+    async def get_episodes(self) -> List[KodikEpisode]:
+        self.episodes: List[KodikEpisode] = [
+                KodikEpisode(
+                    episode_num=x + 1,
+                    anime_id=self["shikimori_id"],
+                    parser=self,
+                    id_type="shikimori",
+                    anime_url=self.get("link", None),
+                )
+                for x in range(self.get("episode_count", 0))
+            ]
+        return self.episodes    
+    
+    async def get_translations(self) -> dict:
+        self.translations = (await self.parser.get_info(self.anime_id, self.id_type))['translations']
+        return self.translations
 
+    async def get_video(self, episode_num: int = 0, translation_id: int = 0) -> KodikVideo:
+        await self.episodes()
+
+    async def get_videos(self) -> List[KodikVideo]:
+        if not self.episodes:
+            await self.get_episodes()
+        for episode in self.episodes:
+            await episode.get_videos(self.get('translations', []))
+        return [[video for video in episode.videos if video] for episode in self.episodes]
 
 class KodikParser(Parser):
     def __init__(self, **kwargs):
@@ -108,6 +144,8 @@ class KodikParser(Parser):
                 if kwargs.get("anime_kind", "") == "movie"
                 else (Anime.Type.UNKNOWN)
             ),
+            episode_count=kwargs.get("episode_count", 0),
+            translations=kwargs.get("translations", None),
         )
         return anime
 
@@ -155,6 +193,10 @@ class KodikParser(Parser):
                 continue
 
             if result["title"] not in added_titles:
+                try:
+                    info = await self.get_info(result.get("shikimori_id"), "shikimori")
+                except Exception:
+                    info = {}
                 animes.append(
                     {
                         "id": result["id"],
@@ -170,9 +212,13 @@ class KodikParser(Parser):
                         "worldart_link": result.get("worldart_link"),
                         "link": result.get("link"),
                         "all_status": result.get("all_status"),
-                        "description": result.get("material_data", {}).get("description", None),
+                        "description": result.get("material_data", {}).get(
+                            "description", None
+                        ),
                         "other_titles_en": result.get("other_titles_en", []),
                         "other_titles_jp": result.get("other_titles_jp", []),
+                        "episode_count": info.get("episode_count", 0),
+                        "translations": info.get("translations", None),
                     }
                 )
                 added_titles.add(result["title"])
@@ -186,9 +232,9 @@ class KodikParser(Parser):
         data = await self.get_info(anime_id, id_type)
         return data["translations"]
 
-    async def series_count(self, anime_id: str, id_type: str) -> int:
+    async def episode_count(self, anime_id: str, id_type: str) -> int:
         data = await self.get_info(anime_id, id_type)
-        return data["series_count"]
+        return data["episode_count"]
 
     async def _link_to_info(
         self,
@@ -215,7 +261,7 @@ class KodikParser(Parser):
         data = await self.get(link, text=True)
         soup = await self.soup(data)
         if self._is_serial(link):
-            series_count = len(
+            episode_count = len(
                 soup.find("div", {"class": "serial-series-box"})
                 .find("select")
                 .find_all("option")
@@ -229,11 +275,11 @@ class KodikParser(Parser):
             except AttributeError:
                 translations_div = None
             return {
-                "series_count": series_count,
+                "episode_count": episode_count,
                 "translations": self._generate_translations_dict(translations_div),
             }
         elif self._is_video(link):
-            series_count = 0
+            episode_count = 0
             try:
                 translations_div = (
                     soup.find("div", {"class": "movie-translations-box"})
@@ -243,7 +289,7 @@ class KodikParser(Parser):
             except AttributeError:
                 translations_div = None
             return {
-                "series_count": series_count,
+                "episode_count": episode_count,
                 "translations": self._generate_translations_dict(translations_div),
             }
         else:

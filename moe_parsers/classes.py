@@ -232,11 +232,11 @@ class Parser(object):
         UNKNOWN = "unknown"
 
     class Usage:
-        ALL = "full"
-        WATCH = "watch"
-        DOWNLOAD = "download"
-        SEARCH = "search"
-        UNKNOWN = "unknown"
+        ALL = "Full"
+        WATCH = "Match"
+        DOWNLOAD = "Download"
+        SEARCH = "Search"
+        UNKNOWN = "Unknown"
 
     def __repr__(self):
         return f"""<{self.__class__.__name__} "{self.base_url}">"""
