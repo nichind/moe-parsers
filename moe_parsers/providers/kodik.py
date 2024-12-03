@@ -51,7 +51,7 @@ class KodikEpisode(Anime.Episode):
     
     async def get_videos(self, translations: list) -> List[KodikIframe]:
         for translation in translations:
-            iframe = await self.get_video(translation['translation_id'])
+            iframe = await self.get_video(translation['id'])
             if iframe not in self.videos:
                 self.videos += [iframe]
         return self.videos 
@@ -71,12 +71,12 @@ class KodikAnime(Anime):
         self.episodes: List[KodikEpisode] = [
                 KodikEpisode(
                     episode_num=x + 1,
-                    anime_id=self["shikimori_id"],
-                    parser=self,
+                    anime_id=self.anime_id,
+                    parser=self.parser,
                     id_type="shikimori",
-                    anime_url=self.get("link", None),
+                    anime_url=self.__dict__.get("link", None),
                 )
-                for x in range(self.get("episode_count", 0))
+                for x in range(self.__dict__.get("episode_count", 0))
             ]
         return self.episodes    
     
@@ -90,8 +90,10 @@ class KodikAnime(Anime):
     async def get_videos(self) -> List[KodikVideo]:
         if not self.episodes:
             await self.get_episodes()
+        if not self.translations:
+            self.translations = await self.get_translations()
         for episode in self.episodes:
-            await episode.get_videos(self.get('translations', []))
+            await episode.get_videos(self.translations)
         return [[video for video in episode.videos if video] for episode in self.episodes]
 
 class KodikParser(Parser):
