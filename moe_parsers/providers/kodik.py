@@ -84,8 +84,14 @@ class KodikAnime(Anime):
         self.translations = (await self.parser.get_info(self.anime_id, self.id_type))['translations']
         return self.translations
 
-    async def get_video(self, episode_num: int = 0, translation_id: int = 0) -> KodikVideo:
-        await self.episodes()
+    async def get_video(self, episode_num: int = 0, translation_id: int = None) -> KodikVideo:
+        if not self.episodes:
+            await self.get_episodes()
+        if not self.translations:
+            self.translations = await self.get_translations()
+        if not translation_id or str(translation_id) not in [(translation['id']) for translation in self.translations]:
+            translation_id = self.translations[0]['id']
+        return await self.episodes[episode_num - 1].get_video(translation_id)
 
     async def get_videos(self) -> List[KodikVideo]:
         if not self.episodes:
