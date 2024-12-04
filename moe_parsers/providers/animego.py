@@ -29,7 +29,7 @@ class AnimegoEpisode(Anime.Episode):
                     if player["name"] == "AniBoom":
                         tasks += [
                             asyncio.create_task(
-                                self._get_mpdp_for_player(
+                                self._get_mpd_for_player(
                                     player["url"].split("?")[0],
                                     self.episode_num,
                                     compile(r"translation=(\d+)")
@@ -61,7 +61,7 @@ class AnimegoEpisode(Anime.Episode):
         self.videos = res
         return self.videos
 
-    async def _get_mpdp_for_player(
+    async def _get_mpd_for_player(
         self, url: str, episode_num: int, translation_id: str, provider_id: str
     ) -> MPDPlaylist:
         return (

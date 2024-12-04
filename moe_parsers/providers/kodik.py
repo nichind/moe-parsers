@@ -171,6 +171,7 @@ class KodikParser(Parser):
         limit: int = 25,
         id_type: Literal["shikimori", "kinopoisk", "imdb"] = None,
         strict: bool = False,
+        with_details: bool = False,
     ) -> List[KodikAnime]:
         if not self.token:
             await self.obtain_token()
@@ -201,10 +202,9 @@ class KodikParser(Parser):
                 continue
 
             if result["title"] not in added_titles:
-                try:
-                    info = await self.get_info(result.get("shikimori_id"), "shikimori")
-                except Exception:
-                    info = {}
+                info = {}
+                if with_details:
+                    info = await self.get_anime_info(result["id"])
                 animes.append(
                     {
                         "id": result["id"],
