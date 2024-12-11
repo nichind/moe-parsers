@@ -42,20 +42,38 @@ class KodikEpisode(Anime.Episode):
         self.parser: KodikParser = (
             kwargs["parser"] if "parser" in kwargs else KodikParser()
         )
-        
-    async def get_video(self, translation_id: str | int = 0) -> KodikVideo | KodikIframe:
-        iframe = KodikIframe(url=await self.parser.get_iframe(self.anime_id, self.id_type, self.episode_num, translation_id))
+
+    async def get_video(
+        self, translation_id: str | int = 0
+    ) -> KodikVideo | KodikIframe:
+        iframe = KodikIframe(
+            url=await self.parser.get_iframe(
+                self.anime_id, self.id_type, self.episode_num, translation_id
+            )
+        )
         if iframe not in self.videos:
             self.videos += [iframe]
         return iframe
-    
-    async def get_videos(self, translations: list) -> List[KodikIframe]:
+
+    async def get_videos(self, translations: list = None) -> List[KodikIframe]:
+        if not translations:
+            translations = (await self.parser.get_info(self.anime_id, self.id_type))[
+                "translations"
+            ]
         for translation in translations:
-            iframe = await self.get_video(translation['id'])
+            episodes_translated = (
+                translation.get("name", "").split("(")[-1].split(" ")[0]
+            )
+            if (
+                episodes_translated.isdigit()
+                and int(episodes_translated) < self.episode_num
+            ):
+                continue
+            iframe = await self.get_video(translation["id"])
             if iframe not in self.videos:
                 self.videos += [iframe]
-        return self.videos 
-    
+        return self.videos
+
 
 class KodikAnime(Anime):
     def __init__(self, *args, **kwargs):
@@ -65,32 +83,48 @@ class KodikAnime(Anime):
         )
 
     async def get_info(self) -> dict:
-        return await self.parser.get_info(self.anime_id, self.id_type)
+        info = await self.parser.get_info(self.anime_id, self.id_type)
+        self.total_episodes = info["episode_count"]
+        self.translations = info["translations"]
+        await self.get_episodes()
+        return info
 
     async def get_episodes(self) -> List[KodikEpisode]:
         self.episodes: List[KodikEpisode] = [
-                KodikEpisode(
-                    episode_num=x + 1,
-                    anime_id=self.anime_id,
-                    parser=self.parser,
-                    id_type="shikimori",
-                    anime_url=self.__dict__.get("link", None),
+            KodikEpisode(
+                episode_num=x + 1,
+                anime_id=self.anime_id,
+                parser=self.parser,
+                id_type="shikimori",
+                anime_url=self.__dict__.get("link", None),
+                status=Anime.Episode.Status.RELEASED
+                if int(
+                    (self.translations[0].get("name", "1").split("(")[-1].split(" ")[0])
                 )
-                for x in range(self.__dict__.get("episode_count", 0))
-            ]
-        return self.episodes    
-    
+                >= x + 1
+                else Anime.Episode.Status.UNKNOWN,
+            )
+            for x in range(self.__dict__.get("total_episodes", 1))
+        ]
+        return self.episodes
+
     async def get_translations(self) -> dict:
-        self.translations = (await self.parser.get_info(self.anime_id, self.id_type))['translations']
+        self.translations = (await self.parser.get_info(self.anime_id, self.id_type))[
+            "translations"
+        ]
         return self.translations
 
-    async def get_video(self, episode_num: int = 0, translation_id: int = None) -> KodikVideo:
+    async def get_video(
+        self, episode_num: int = 0, translation_id: int = None
+    ) -> KodikVideo:
         if not self.episodes:
             await self.get_episodes()
         if not self.translations:
             self.translations = await self.get_translations()
-        if not translation_id or str(translation_id) not in [(translation['id']) for translation in self.translations]:
-            translation_id = self.translations[0]['id']
+        if not translation_id or str(translation_id) not in [
+            (translation["id"]) for translation in self.translations
+        ]:
+            translation_id = self.translations[0]["id"]
         return await self.episodes[episode_num - 1].get_video(translation_id)
 
     async def get_videos(self) -> List[KodikVideo]:
@@ -100,7 +134,10 @@ class KodikAnime(Anime):
             self.translations = await self.get_translations()
         for episode in self.episodes:
             await episode.get_videos(self.translations)
-        return [[video for video in episode.videos if video] for episode in self.episodes]
+        return [
+            [video for video in episode.videos if video] for episode in self.episodes
+        ]
+
 
 class KodikParser(Parser):
     def __init__(self, **kwargs):
@@ -236,11 +273,15 @@ class KodikParser(Parser):
 
         return animes
 
-    async def translations(self, anime_id: str, id_type: Literal["shikimori", "kinopoisk", "imdb"]) -> list:
+    async def translations(
+        self, anime_id: str, id_type: Literal["shikimori", "kinopoisk", "imdb"]
+    ) -> list:
         data = await self.get_info(anime_id, id_type)
         return data["translations"]
 
-    async def episode_count(self, anime_id: str, id_type: Literal["shikimori", "kinopoisk", "imdb"]) -> int:
+    async def episode_count(
+        self, anime_id: str, id_type: Literal["shikimori", "kinopoisk", "imdb"]
+    ) -> int:
         data = await self.get_info(anime_id, id_type)
         return data["episode_count"]
 
@@ -257,14 +298,16 @@ class KodikParser(Parser):
             url = f"https://kodikapi.com/get-player?title=Player&hasPlayer=false&url=https%3A%2F%2Fkodikdb.com%2Ffind-player%3FkinopoiskID%3D{anime_id}&token={self.token}&imdbID={anime_id}"
         data = await self.get(url)
         if "error" in data.keys() and data["error"] == "Отсутствует или неверный токен":
-            raise Exceptions.PlayerBlocked("Отсутствует или неверный токен")
+            raise Exceptions.PlayerBlocked("Token is invalid")
         elif "error" in data.keys():
             raise Exceptions.PlayerBlocked(data["error"])
         if not data["found"]:
-            raise Exceptions.PlayerBlocked(f'Нет данных по {id_type} id "{id}"')
+            raise Exceptions.PlayerBlocked(f"Anime {anime_id} ({id_type}) not found")
         return "https:" + data["link"]
 
-    async def get_info(self, anime_id: str, id_type: Literal["shikimori", "kinopoisk", "imdb"]) -> dict:
+    async def get_info(
+        self, anime_id: str, id_type: Literal["shikimori", "kinopoisk", "imdb"]
+    ) -> dict:
         link = await self._link_to_info(anime_id, id_type)
         data = await self.get(link, text=True)
         soup = await self.soup(data)
@@ -302,7 +345,7 @@ class KodikParser(Parser):
             }
         else:
             raise Exceptions.PageNotFound(
-                "Ссылка на данные не была распознана как ссылка на сериал или фильм"
+                "Unknown link type, the link is not a serial or video."
             )
 
     def _is_serial(self, iframe_url: str) -> bool:

@@ -84,6 +84,7 @@ class Parser(object):
         self.proxy_auth = None
         self.language: str = self.Language.UNKNOWN
         self.best_usage: str = None
+        self.verify_proxy = False
 
         try:
             import lxml
@@ -162,6 +163,7 @@ class Parser(object):
                         params=kwargs.get("params"),
                         headers=kwargs.get("headers", self.headers),
                         proxies=proxies,
+                        verify=self.verify_proxy or kwargs.get("verify", False),
                     )
                 else:
                     response = requests.post(
@@ -169,15 +171,19 @@ class Parser(object):
                         data=kwargs.get("data"),
                         headers=kwargs.get("headers", self.headers),
                         proxies=proxies,
+                        verify=self.verify_proxy or kwargs.get("verify", False),
                     )
                 if response.status_code == 429:
                     kwargs["retries"] = retries + 1
-                    return await self.request(path, **kwargs)
+                    return await self.request(path, request_type, **kwargs)
                 elif response.status_code == 404:
                     raise Exceptions.PageNotFound(f"Page not found: {url}")
                 if kwargs.get("text", False):
                     return response.text
-                return response.json()
+                try:
+                    return response.json()
+                except Exception:
+                    return response.text
             except requests.exceptions.ProxyError as exc:
                 raise Exceptions.ConnectionError(f"Proxy error: {exc}")
         else:
@@ -203,7 +209,7 @@ class Parser(object):
                         retry_after = response.headers.get("Retry-After", 1)
                         await sleep(float(retry_after))
                         kwargs["retries"] = retries + 1
-                        return await self.request(path, **kwargs)
+                        return await self.request(path, request_type, **kwargs)
                     elif response.status == 404:
                         raise Exceptions.PageNotFound(f"Page not found: {url}")
                     try:
@@ -215,10 +221,13 @@ class Parser(object):
             except OSError:
                 kwargs["retries"] = retries + 1
                 await sleep(1)
-                return await self.request(path, **kwargs)
+                return await self.request(path, request_type, **kwargs)
             finally:
                 if kwargs.get("close", True):
                     await session.close()
+
+    async def _nocf(self, *args, **kwargs):
+        pass
 
     async def soup(self, *args, **kwargs):
         return BeautifulSoup(

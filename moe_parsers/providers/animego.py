@@ -178,6 +178,7 @@ class AnimegoParser(Parser):
         self.params = ParserParams(
             base_url="https://animego.org/",
             headers={
+                "User-Agent": "",
                 "Accept": "application/json, text/javascript, */*; q=0.01",
                 "X-Requested-With": "XMLHttpRequest",
                 "Referer": "https://animego.org/",
