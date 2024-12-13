@@ -4,6 +4,7 @@ from moe_parsers.providers.kodik import (
     KodikAnime,
     KodikEpisode,
     KodikIframe,
+    Anime
 )
 
 
@@ -23,3 +24,4 @@ async def test_kodik_get_video():
     await res[0].get_video(1)
     assert len(res[0].episodes) > 0
     assert isinstance(res[0].episodes[0], KodikEpisode)
+    assert res[0].episodes[0].status == Anime.Episode.Status.RELEASED

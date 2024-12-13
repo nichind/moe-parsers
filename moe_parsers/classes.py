@@ -8,14 +8,13 @@ import os
 
 
 class Exceptions:
-    class PageNotFound(Exception):
-        pass
+    class PageNotFound(Exception): ...
 
-    class PlayerBlocked(Exception):
-        pass
+    class PlayerBlocked(Exception): ...
 
-    class TooManyRetries(Exception):
-        pass
+    class TooManyRetries(Exception): ...
+    
+    class ConnectionError(Exception): ...
 
 
 class Media(object):
@@ -26,7 +25,7 @@ class Media(object):
             setattr(self, kwarg, kwargs[kwarg])
 
     def __repr__(self):
-        return f"<{self.__class__.__name__} {', '.join([f'{k}={v}' for k, v in self.__dict__.items() if k != 'content'])}>"
+        return f"<{self.__class__.__name__} {', '.join([f'{k}={v}' for k, v in self.__dict__.items() if k not in ['content', 'parser']])}>"
 
 
 class MPDPlaylist(Media):
@@ -146,6 +145,7 @@ class Parser(object):
 
         if self.proxy or kwargs.get("proxy", False):
             import requests
+            requests.packages.urllib3.disable_warnings()  # Disable SSL warnings on proxy
 
             url = (
                 f"{kwargs.get('base_url', self.base_url)}{path}"
@@ -178,6 +178,9 @@ class Parser(object):
                     return await self.request(path, request_type, **kwargs)
                 elif response.status_code == 404:
                     raise Exceptions.PageNotFound(f"Page not found: {url}")
+                elif "REMOTE_ADDR = " in response.text:
+                    kwargs["retries"] = retries + 1
+                    return await self.request(path, request_type, **kwargs)
                 if kwargs.get("text", False):
                     return response.text
                 try:
@@ -218,7 +221,6 @@ class Parser(object):
                         return await response.json()
                     except Exception:
                         return await response.text()
-            except OSError:
                 kwargs["retries"] = retries + 1
                 await sleep(1)
                 return await self.request(path, request_type, **kwargs)

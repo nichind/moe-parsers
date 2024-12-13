@@ -299,6 +299,7 @@ class AniboomParser(Parser):
                 anime_id=sub(r"\D", "", link[link.rfind("-") + 1 :]),
                 anime_url=link,
                 episode_id=ep["episode_id"],
+                parser=self
             )
         if not episodes:
             episodes = [
@@ -307,6 +308,7 @@ class AniboomParser(Parser):
                     status=Anime.Episode.Status.UNKNOWN,
                     anime_id=sub(r"\D", "", link[link.rfind("-") + 1 :]),
                     anime_url=link,
+                    parser=self.parser
                 )
             ]
         return episodes

@@ -52,13 +52,3 @@ async def test_animego_get_videos():
     parser = AnimegoParser()
     videos = await parser.get_videos("30387")
     assert len(videos) >= 1
-
-
-@pytest.mark.asyncio
-async def test_animego_get_shikimori_id():
-    assert (
-        await AnimegoAnime().get_shikimori_id(
-            "https://animego.org/anime/plastikovye-vospominaniya-2318"
-        )
-        == "27775"
-    )

@@ -90,6 +90,8 @@ class KodikAnime(Anime):
         return info
 
     async def get_episodes(self) -> List[KodikEpisode]:
+        if "total_episodes" not in self.__dict__ or not self.__dict__["total_episodes"]:
+            await self.get_info()
         self.episodes: List[KodikEpisode] = [
             KodikEpisode(
                 episode_num=x + 1,
@@ -122,10 +124,12 @@ class KodikAnime(Anime):
         if not self.translations:
             self.translations = await self.get_translations()
         if not translation_id or str(translation_id) not in [
-            (translation["id"]) for translation in self.translations
+            translation["id"] for translation in self.translations
         ]:
             translation_id = self.translations[0]["id"]
-        return await self.episodes[episode_num - 1].get_video(translation_id)
+        for episode in self.episodes:
+            if episode.episode_num == episode_num:
+                return await episode.get_video(translation_id)
 
     async def get_videos(self) -> List[KodikVideo]:
         if not self.episodes:

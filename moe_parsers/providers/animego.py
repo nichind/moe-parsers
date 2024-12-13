@@ -1,7 +1,8 @@
 from re import compile
 from typing import List
-from ..classes import Anime, Parser, ParserParams, Exceptions
+from ..classes import Anime, Parser, ParserParams, Exceptions, Media
 from .aniboom import AniboomParser, MPDPlaylist, AniboomAnime
+from .kodik import KodikIframe
 import asyncio
 
 
@@ -12,10 +13,19 @@ class AnimegoEpisode(Anime.Episode):
             kwargs["parser"] if "parser" in kwargs else AnimegoParser()
         )
         if not isinstance(self.parser, AnimegoParser):
-            self.parser = AnimegoParser()
+            self.parser = AnimegoParser(proxy=kwargs["parser"].__dict__.get("proxy", None) if "parser" in kwargs else None)
 
-    async def get_video(self, *args, **kwargs):
-        raise NotImplementedError("Use get_videos instead")
+    async def get_video(self, translation_id: int | str = None, provider_id: int | str = None) -> Media:
+        if not self.videos:
+            await self.get_videos()
+        for video in self.videos:
+            if translation_id and video["translation_id"] != translation_id:
+                continue
+            if provider_id and video["provider_id"] != provider_id:
+                continue
+            media = KodikIframe(url=video["content"], parser=self.parser) if "kodik" in video["content"] else Media(url=video["content"])
+            return media
+        
 
     async def get_videos(self) -> List[dict]:
         if self.status != "Released":
@@ -186,7 +196,7 @@ class AnimegoParser(Parser):
             language=Parser.Language.RU,
         )
         super().__init__(self.params, **kwargs)
-        self._parser = AniboomParser(self.params, **kwargs)
+        self._parser = AniboomParser(params=self.params, **kwargs)
 
     async def search(self, query: str) -> List[AnimegoAnime]:
         animes = await self._parser.search(query)
