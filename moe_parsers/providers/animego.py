@@ -1,7 +1,7 @@
 from re import compile
 from typing import List
 from ..classes import Anime, Parser, ParserParams, Exceptions, Media
-from .aniboom import AniboomParser, MPDPlaylist, AniboomAnime
+from .aniboom import AniboomParser, MPDPlaylist, AniboomAnime, AniboomEpisode
 from .kodik import KodikIframe
 import asyncio
 
@@ -24,6 +24,8 @@ class AnimegoEpisode(Anime.Episode):
             if provider_id and video["provider_id"] != provider_id:
                 continue
             media = KodikIframe(url=video["content"], parser=self.parser) if "kodik" in video["content"] else Media(url=video["content"])
+            if media not in self.videos:
+                self.videos.append(media)
             return media
         
 
@@ -48,6 +50,15 @@ class AnimegoEpisode(Anime.Episode):
                                     player["provider_id"],
                                 )
                             )
+                        ]
+                    elif "kodik" in player["url"]:
+                        res += [
+                            {
+                                "translation_id": video["dub_id"],
+                                "content": KodikIframe(url=player["url"], parser=self.parser),
+                                "provider_id": player["provider_id"],
+                                "provider_name": player["name"],
+                            }
                         ]
                     else:
                         res += [
@@ -87,51 +98,20 @@ class AnimegoAnime(Anime):
         )
 
     async def get_episodes(self) -> List[AnimegoEpisode]:
-        if self.episodes:
-            return self.episodes
-        self.episodes: List[AnimegoEpisode] = await self.parser.get_episodes(self.url)
-        self.total_episodes = int(self.episodes[-1].get("num", 0))
+        await AniboomAnime.get_episodes()
+        for i, episode in enumerate(self.episodes):
+            self.episodes[i] = AnimegoEpisode(**episode.__dict__)
         return self.episodes
 
     async def get_translations(self) -> dict:
-        if self.translations and len(self.translations) > 0:
-            return self.translations
-        self.translations = await self.parser.get_translations(self.anime_id)
+        self.translations = await AniboomAnime.get_translations(self)
         return self.translations
 
     async def get_info(self) -> dict:
-        self.data = await self.parser.get_info(self.url)
-        self.episodes = self.data.get("episodes", [])
+        await AniboomAnime.get_info(self)
         for i, episode in enumerate(self.episodes):
             if not isinstance(episode, AnimegoEpisode):
                 self.episodes[i] = AnimegoEpisode(**episode.__dict__)
-        self.translations = self.data["translations"]
-        self.status = (
-            Anime.Status.COMPLETED
-            if self.data.get("status", "") == "Вышел"
-            else (
-                Anime.Status.ONGOING
-                if "/" in self.data.get("status", "")
-                else Anime.Status.UNKNOWN
-            )
-        )
-        self.type = (
-            Anime.Type.TV
-            if self.data.get("type", "") == "ТВ Сериал"
-            else (
-                Anime.Type.MOVIE
-                if self.data.get("type", "") == "Фильм"
-                else (
-                    Anime.Type.OVA
-                    if self.data.get("type", "") == "OVA"
-                    else (
-                        Anime.Type.SPECIAL
-                        if self.data.get("type", "") == "Спешл"
-                        else (Anime.Type.UNKNOWN)
-                    )
-                )
-            )
-        )
         return self.data
 
     async def get_video(
@@ -198,6 +178,13 @@ class AnimegoParser(Parser):
         super().__init__(self.params, **kwargs)
         self._parser = AniboomParser(params=self.params, **kwargs)
 
+    async def convert2anime(self, **kwargs) -> AnimegoAnime:
+        kwargs["parser"] = self
+        anime = AnimegoAnime(
+            **kwargs
+        )
+        return anime
+
     async def search(self, query: str) -> List[AnimegoAnime]:
         animes = await self._parser.search(query)
         for i, anime in enumerate(animes):
@@ -213,19 +200,6 @@ class AnimegoParser(Parser):
             episodes[i] = AnimegoEpisode(**episode.__dict__)
         return episodes
 
-    async def convert2anime(self, **kwargs) -> AnimegoAnime:
-        anime = AnimegoAnime(
-            orig_title=kwargs["orig_title"],
-            title=kwargs["title"],
-            anime_id=kwargs["anime_id"],
-            url=kwargs["url"],
-            parser=self,
-            id_type="animego",
-            language=self.language,
-            data=kwargs["data"],
-        )
-        return anime
-
     async def get_translations(self, animego_id: int | str) -> dict:
         """
         Get translations for animego_id.
@@ -235,7 +209,7 @@ class AnimegoParser(Parser):
 
         Returns:
         dict: translations with names and translation ids.
-        """
+        """ 
         params = {
             "_allow": "true",
         }
@@ -271,8 +245,8 @@ class AnimegoParser(Parser):
                 added += [dubs[dubbing]]
                 translations += [{"name": dubs[dubbing], "translation_id": dubbing}]
 
-        except Exception as e:
-            print(e)
+        except Exception as exc:
+            print(exc)
 
         return translations
 

@@ -57,8 +57,10 @@ class AniboomAnime(Anime):
 
     async def get_info(self) -> dict:
         self.data = await self.parser.get_info(self.url)
+        self.description = self.data.get("description", None)
         self.episodes = self.data.get("episodes", [])
         self.translations = self.data["translations"]
+        self.all_titles = self.data.get("all_titles", None)
         self.status = (
             Anime.Status.COMPLETED
             if self.data.get("status", "") == "Вышел"
@@ -85,6 +87,7 @@ class AniboomAnime(Anime):
                 )
             )
         )
+        self.total_episodes = len(self.episodes) if self.episodes else None
         return self.data
 
     async def get_video(
@@ -148,14 +151,10 @@ class AniboomParser(Parser):
 
     async def convert2anime(self, **kwargs) -> AniboomAnime:
         anime = AniboomAnime(
-            orig_title=kwargs["other_title"],
-            title=kwargs["title"],
-            anime_id=kwargs["id"],
-            url=kwargs["link"],
             parser=self,
             id_type="animego",
             language=self.language,
-            data=kwargs["data"],
+            **kwargs,
         )
         return anime
 
@@ -195,13 +194,10 @@ class AniboomParser(Parser):
             data["type"] = result.find(
                 "a", {"href": compile(r".*anime/type.*")}
             ).text.strip()
-            data["link"] = (
+            data["url"] = (
                 self.base_url[:-1] + result.find("h5").find("a").attrs["href"]
             )
-            data["id"] = data["link"][data["link"].rfind("-") + 1 :]
-            data["data"]["year"] = result.find(
-                "span", {"class": "anime-year"}
-            ).text.strip()
+            data["anime_id"] = data["url"][data["url"].rfind("-") + 1 :]
             results.append(await self.convert2anime(**data))
 
         return results
@@ -365,7 +361,7 @@ class AniboomParser(Parser):
 
         anime_data["other_info"] = {}
         for key, value in zip(keys, values):
-            key_text = key.text.strip()
+            key_text = key.text.strip().replace("  ", " ")
             if value.get("class") == ["mt-2", "col-12"] or value.find("hr"):
                 continue
             if key_text == "Озвучка":
@@ -405,9 +401,15 @@ class AniboomParser(Parser):
             anime_data["translations"] = await self.get_translations(
                 anime_data["animego_id"]
             )
-        except Exception as e:
-            print(e)
+        except Exception as exc:
+            print(exc)
             anime_data["translations"] = []
+
+        anime_data["all_titles"] = [anime_data["title"]]
+        anime_data["all_titles"] += [anime_data["other_title"]] if "other_title" in anime_data else []
+        anime_data["all_titles"] += [anime_data["orig_title"]] if "oring_title" in anime_data else []
+        print(anime_data)
+        exit()
 
         return anime_data
 
@@ -457,8 +459,8 @@ class AniboomParser(Parser):
                 if "translation_id" in translation:
                     filtered_translations.append(translation)
 
-        except Exception as e:
-            print(e)
+        except Exception as exc:
+            print(exc)
             filtered_translations = []
 
         return filtered_translations
