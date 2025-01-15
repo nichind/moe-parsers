@@ -1,5 +1,5 @@
 from re import compile, sub
-from typing import List
+from typing import List, AsyncGenerator
 from json import loads
 from datetime import datetime
 from ..classes import Anime, Parser, ParserParams, Exceptions, MPDPlaylist
@@ -95,7 +95,7 @@ class AniboomAnime(Anime):
     ) -> MPDPlaylist:
         return await self.parser.get_mpd_content(self.anime_id, episode, translation_id)
 
-    async def get_videos(self) -> List[dict]:
+    async def get_videos(self) -> AsyncGenerator:
         """
         Get all videos for all episodes.
         Very long process, can take a while. Probably shouldn't be used on prod
@@ -109,10 +109,10 @@ class AniboomAnime(Anime):
             else await self.get_episodes()
         ):
             try:
-                await episode.get_videos()
+                yield [await episode.get_videos()]
             except Exception:
-                continue
-        return [episode.videos for episode in self.episodes]
+                yield []
+        return
 
     async def get_shikimori_id(self, url: str = None) -> str | None:
         response = await self.parser.get(
@@ -279,7 +279,6 @@ class AniboomParser(Parser):
                         "%d %m %Y",
                     )
             except ValueError as exc:
-                print(exc)
                 episodes[i]["date"] = None
             episodes[i] = AniboomEpisode(
                 episode_num=ep["num"],
@@ -402,14 +401,11 @@ class AniboomParser(Parser):
                 anime_data["animego_id"]
             )
         except Exception as exc:
-            print(exc)
             anime_data["translations"] = []
 
         anime_data["all_titles"] = [anime_data["title"]]
         anime_data["all_titles"] += [anime_data["other_title"]] if "other_title" in anime_data else []
         anime_data["all_titles"] += [anime_data["orig_title"]] if "oring_title" in anime_data else []
-        print(anime_data)
-        exit()
 
         return anime_data
 

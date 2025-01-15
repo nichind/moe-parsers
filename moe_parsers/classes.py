@@ -2,7 +2,7 @@ from aiohttp import ClientSession
 from bs4 import BeautifulSoup
 from asyncio import sleep
 from io import BytesIO
-from typing import Literal, List, Self
+from typing import Literal, List, Self, TypedDict
 from datetime import datetime
 import os
 
@@ -315,4 +315,4 @@ class Anime(object):
         UNKNOWN = "Unknown"
 
     def __repr__(self):
-        return f"""<{self.__class__.__name__} "{self.title if len(self.title) < 50 else self.title[:47] + '...'}" "{self.orig_title if len(self.orig_title) < 50 else self.orig_title[:47] + '...'}">"""
+        return f"""<{self.__class__.__name__} "{self.title if len(self.title) < 50 else self.title[:47] + '...'}" "{(self.orig_title if len(self.orig_title) < 50 else self.orig_title[:47] + '...') if self.orig_title else ''}">"""
