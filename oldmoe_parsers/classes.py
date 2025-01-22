@@ -13,7 +13,7 @@ class Exceptions:
     class PlayerBlocked(Exception): ...
 
     class TooManyRetries(Exception): ...
-    
+
     class ConnectionError(Exception): ...
 
 
@@ -145,6 +145,7 @@ class Parser(object):
 
         if self.proxy or kwargs.get("proxy", False):
             import requests
+
             requests.packages.urllib3.disable_warnings()  # Disable SSL warnings on proxy
 
             url = (

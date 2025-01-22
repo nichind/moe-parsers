@@ -13,9 +13,15 @@ class AnimegoEpisode(Anime.Episode):
             kwargs["parser"] if "parser" in kwargs else AnimegoParser()
         )
         if not isinstance(self.parser, AnimegoParser):
-            self.parser = AnimegoParser(proxy=kwargs["parser"].__dict__.get("proxy", None) if "parser" in kwargs else None)
+            self.parser = AnimegoParser(
+                proxy=kwargs["parser"].__dict__.get("proxy", None)
+                if "parser" in kwargs
+                else None
+            )
 
-    async def get_video(self, translation_id: int | str = None, provider_id: int | str = None) -> Media:
+    async def get_video(
+        self, translation_id: int | str = None, provider_id: int | str = None
+    ) -> Media:
         if not self.videos:
             await self.get_videos()
         for video in self.videos:
@@ -23,11 +29,14 @@ class AnimegoEpisode(Anime.Episode):
                 continue
             if provider_id and video["provider_id"] != provider_id:
                 continue
-            media = KodikIframe(url=video["content"], parser=self.parser) if "kodik" in video["content"] else Media(url=video["content"])
+            media = (
+                KodikIframe(url=video["content"], parser=self.parser)
+                if "kodik" in video["content"]
+                else Media(url=video["content"])
+            )
             if media not in self.videos:
                 self.videos.append(media)
             return media
-        
 
     async def get_videos(self) -> List[dict]:
         if self.status != "Released":
@@ -55,7 +64,9 @@ class AnimegoEpisode(Anime.Episode):
                         res += [
                             {
                                 "translation_id": video["dub_id"],
-                                "content": KodikIframe(url=player["url"], parser=self.parser),
+                                "content": KodikIframe(
+                                    url=player["url"], parser=self.parser
+                                ),
                                 "provider_id": player["provider_id"],
                                 "provider_name": player["name"],
                             }
@@ -180,9 +191,7 @@ class AnimegoParser(Parser):
 
     async def convert2anime(self, **kwargs) -> AnimegoAnime:
         kwargs["parser"] = self
-        anime = AnimegoAnime(
-            **kwargs
-        )
+        anime = AnimegoAnime(**kwargs)
         return anime
 
     async def search(self, query: str) -> List[AnimegoAnime]:
@@ -209,7 +218,7 @@ class AnimegoParser(Parser):
 
         Returns:
         dict: translations with names and translation ids.
-        """ 
+        """
         params = {
             "_allow": "true",
         }

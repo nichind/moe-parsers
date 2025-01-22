@@ -194,9 +194,7 @@ class AniboomParser(Parser):
             data["type"] = result.find(
                 "a", {"href": compile(r".*anime/type.*")}
             ).text.strip()
-            data["url"] = (
-                self.base_url[:-1] + result.find("h5").find("a").attrs["href"]
-            )
+            data["url"] = self.base_url[:-1] + result.find("h5").find("a").attrs["href"]
             data["anime_id"] = data["url"][data["url"].rfind("-") + 1 :]
             results.append(await self.convert2anime(**data))
 
@@ -294,7 +292,7 @@ class AniboomParser(Parser):
                 anime_id=sub(r"\D", "", link[link.rfind("-") + 1 :]),
                 anime_url=link,
                 episode_id=ep["episode_id"],
-                parser=self
+                parser=self,
             )
         if not episodes:
             episodes = [
@@ -303,7 +301,7 @@ class AniboomParser(Parser):
                     status=Anime.Episode.Status.UNKNOWN,
                     anime_id=sub(r"\D", "", link[link.rfind("-") + 1 :]),
                     anime_url=link,
-                    parser=self.parser
+                    parser=self.parser,
                 )
             ]
         return episodes
@@ -404,8 +402,12 @@ class AniboomParser(Parser):
             anime_data["translations"] = []
 
         anime_data["all_titles"] = [anime_data["title"]]
-        anime_data["all_titles"] += [anime_data["other_title"]] if "other_title" in anime_data else []
-        anime_data["all_titles"] += [anime_data["orig_title"]] if "oring_title" in anime_data else []
+        anime_data["all_titles"] += (
+            [anime_data["other_title"]] if "other_title" in anime_data else []
+        )
+        anime_data["all_titles"] += (
+            [anime_data["orig_title"]] if "oring_title" in anime_data else []
+        )
 
         return anime_data
 
