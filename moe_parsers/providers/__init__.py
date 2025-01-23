@@ -1,0 +1,1 @@
+from .animego import AniboomParser

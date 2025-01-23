@@ -1,7 +1,7 @@
 from aiohttp import ClientSession
 from asyncio import sleep
 from requests import request, packages, Response as RequestsModuleResponse
-from typing import TypedDict, Literal
+from typing import TypedDict, Literal, Unpack
 from faker import Faker
 from bs4 import BeautifulSoup
 
@@ -17,6 +17,12 @@ class _ClientHeaders(TypedDict, total=False):
     accept_charset: str
     connection: str
     cookie: str
+
+
+class _ClientParams(TypedDict, total=False):
+    headers: _ClientHeaders
+    max_retries: int
+    base_url: str
 
 
 class RequestArgs(TypedDict, total=False):
@@ -40,27 +46,35 @@ class _RequestResponse:
         self.soup = BeautifulSoup(self.text, features="html.parser")
 
     def __repr__(self):
-        return f"<Response [{self.status}]>"
+        return f"<Response [{self.status}] ({len(self.text)}, {len(self.json) if self.json else 0})>"
 
     def json(self):
         return self.__dict__.get("json", None)
 
 
 class _Client:
+    def __init__(self, **params: Unpack[_ClientParams]):
+        self.__dict__.update(**params)
+
     def _my(self, key: str):
         return self.__dict__.get(key, None)
 
-    def replace_headers(self, **headers: _ClientHeaders):
+    def replace_headers(self, *dicts: dict, **headers: Unpack[_ClientHeaders]):
+        for d in dicts:
+            self.__dict__.get("headers", {}).update(**d)
         self.__dict__.get("headers", {}).update(
             **{k.replace("_", "-").title(): v for k, v in headers.items()}
         )
 
-    async def request(self, **kwargs: RequestArgs) -> _RequestResponse:
+    async def request(self, **kwargs: Unpack[RequestArgs]) -> _RequestResponse:
         if kwargs.get("retries", 0) > self.__dict__.get("max_retries", 5):
             raise Exception("Too many retries")
-
         if not kwargs.get("url", None):
             raise Exception("Missing url")
+        else:
+            kwargs["url"] = kwargs["url"].replace(" ", "%20")
+            if not kwargs["url"].startswith("http"):
+                kwargs["url"] = f"{self._my('base_url') or 'https://'}{kwargs['url']}"
         if self._my("proxy") or kwargs.get("proxy", None):
             packages.urllib3.disable_warnings()
             response = request(
@@ -87,10 +101,7 @@ class _Client:
                 pass
         else:
             session: ClientSession = self._my("session") or ClientSession(
-                headers=kwargs.get(
-                    "headers",
-                    None
-                )
+                headers=kwargs.get("headers", None)
             )
             async with session.request(
                 method=kwargs.get("method", "get"),
@@ -121,8 +132,8 @@ class _Client:
 
 
 class Client(_Client):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, **params: Unpack[_ClientParams]):
+        super().__init__(**params)
         self.max_retries = 12
         self.headers = {"User-Agent": Faker().user_agent()}
-        self.__dict__.update(**kwargs)
+        self.__dict__.update(**params)
