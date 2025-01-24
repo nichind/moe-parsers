@@ -8,7 +8,7 @@ class _Parser:
         EN = "en"
         JP = "jp"
         RU = "ru"
-    
+
     class ParserParams(TypedDict, total=False):
         client: Client
         language: Literal["EN", "JP", "RU"]

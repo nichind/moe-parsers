@@ -1,5 +1,6 @@
 from aiohttp import ClientSession
 from asyncio import sleep
+from json import loads
 from requests import request, packages, Response as RequestsModuleResponse
 from typing import TypedDict, Literal, Unpack
 from faker import Faker
@@ -43,6 +44,10 @@ class _RequestResponse:
 
     def __init__(self, **kwargs):
         self.__dict__.update(**kwargs)
+        try:
+            self.json = loads(self.text)
+        except ValueError:
+            self.json = None
         self.soup = BeautifulSoup(self.text, features="html.parser")
 
     def __repr__(self):
@@ -66,15 +71,19 @@ class _Client:
             **{k.replace("_", "-").title(): v for k, v in headers.items()}
         )
 
-    async def request(self, **kwargs: Unpack[RequestArgs]) -> _RequestResponse:
+    def soup(self, *args, **kwargs):
+        return BeautifulSoup(*args, **kwargs, features="html.parser")
+
+    async def request(self, *args, **kwargs: Unpack[RequestArgs]) -> _RequestResponse:
         if kwargs.get("retries", 0) > self.__dict__.get("max_retries", 5):
             raise Exception("Too many retries")
-        if not kwargs.get("url", None):
+        if not kwargs.get("url", None) and args and isinstance(args[0], str):
+            kwargs["url"] = args[0]
+        elif not kwargs.get("url", None):
             raise Exception("Missing url")
-        else:
-            kwargs["url"] = kwargs["url"].replace(" ", "%20")
-            if not kwargs["url"].startswith("http"):
-                kwargs["url"] = f"{self._my('base_url') or 'https://'}{kwargs['url']}"
+        kwargs["url"] = kwargs["url"].replace(" ", "%20")
+        if not kwargs["url"].startswith("http"):
+            kwargs["url"] = f"{self._my('base_url') or 'https://'}{kwargs['url']}"
         if self._my("proxy") or kwargs.get("proxy", None):
             packages.urllib3.disable_warnings()
             response = request(
@@ -95,10 +104,6 @@ class _Client:
                 headers=response.headers,
                 _response=response,
             )
-            try:
-                response.json = response.json()
-            except Exception:
-                pass
         else:
             session: ClientSession = self._my("session") or ClientSession(
                 headers=kwargs.get("headers", None)
@@ -117,10 +122,6 @@ class _Client:
                     headers=response.headers,
                     _response=response,
                 )
-            try:
-                response.json = await response._response.json()
-            except Exception:
-                pass
             if kwargs.get("close", True):
                 await session.close()
         if response.status == 429:
@@ -129,6 +130,12 @@ class _Client:
             kwargs.update({"retries": kwargs.get("retries", 0) + 1})
             return await self.request(**kwargs)
         return response
+
+    async def get(self, *args, **kwargs):
+        return await self.request(method="get", *args, **kwargs)
+
+    async def post(self, *args, **kwargs):
+        return await self.request(method="post", *args, **kwargs)
 
 
 class Client(_Client):

@@ -171,7 +171,7 @@ class AniboomParser(Parser):
         content = (await self.get("search/all", params={"type": "small", "q": query}))[
             "content"
         ]
-
+        print(content)
         page = await self.soup(content)
         try:
             results_list = page.find("div", {"class": "result-search-anime"}).find_all(
