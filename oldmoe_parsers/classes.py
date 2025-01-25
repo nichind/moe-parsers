@@ -70,7 +70,7 @@ class ParserParams:
         self.language = language
 
     def __repr__(self):
-        return f'<{self.__class__.__name__} {", ".join([f"{k}={v}" for k, v in self.__dict__.items()])}>'
+        return f"<{self.__class__.__name__} {', '.join([f'{k}={v}' for k, v in self.__dict__.items()])}>"
 
 
 class Parser(object):
@@ -297,7 +297,7 @@ class Anime(object):
             UNKNOWN = "Unknown"
 
         def __repr__(self):
-            return f"""<{self.__class__.__name__} {self.episode_num} "{self.title if self.title and len(self.title) < 50 else (self.title[:47] + '...' if self.title else '')}" ({self.status}{' '+str(self.date.strftime('%Y-%m-%d')) if self.date else ''})>"""
+            return f"""<{self.__class__.__name__} {self.episode_num} "{self.title if self.title and len(self.title) < 50 else (self.title[:47] + "..." if self.title else "")}" ({self.status}{" " + str(self.date.strftime("%Y-%m-%d")) if self.date else ""})>"""
 
     class Status:
         ONGOING = "Ongoing"
@@ -316,4 +316,4 @@ class Anime(object):
         UNKNOWN = "Unknown"
 
     def __repr__(self):
-        return f"""<{self.__class__.__name__} "{self.title if len(self.title) < 50 else self.title[:47] + '...'}" "{(self.orig_title if len(self.orig_title) < 50 else self.orig_title[:47] + '...') if self.orig_title else ''}">"""
+        return f"""<{self.__class__.__name__} "{self.title if len(self.title) < 50 else self.title[:47] + "..."}" "{(self.orig_title if len(self.orig_title) < 50 else self.orig_title[:47] + "...") if self.orig_title else ""}">"""

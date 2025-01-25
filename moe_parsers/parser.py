@@ -1,5 +1,5 @@
 from .adapter import Client
-from typing import List, TypedDict, Unpack, Literal
+from typing import TypedDict, Unpack, Literal
 from enum import Enum
 
 

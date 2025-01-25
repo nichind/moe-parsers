@@ -347,7 +347,7 @@ class AniboomParser(Parser):
 
         poster_path = soup.find("img").get("src", "")
         anime_data["poster_url"] = (
-            f'{self.base_url[:-1]}{poster_path[poster_path.find("/upload"):]}'
+            f"{self.base_url[:-1]}{poster_path[poster_path.find('/upload') :]}"
             if poster_path
             else ""
         )
@@ -470,7 +470,7 @@ class AniboomParser(Parser):
             f"anime/{animego_id}/player", params=params, headers=headers
         )
         if response["status"] != "success":
-            raise Exception(f'Unexpected status: {response["status"]}')
+            raise Exception(f"Unexpected status: {response['status']}")
         soup = await self.soup(response["content"])
         if soup.find("div", {"class": "player-blocked"}):
             reason = soup.find("div", {"class": "h5"}).text

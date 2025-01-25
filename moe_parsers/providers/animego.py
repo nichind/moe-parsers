@@ -2,6 +2,7 @@ from ..parser import Parser
 from ..items import Anime
 from typing import Unpack, List
 from re import compile as re_compile
+from json import loads
 
 
 class AniboomParser(Parser):
@@ -18,31 +19,33 @@ class AniboomParser(Parser):
 
     async def search(self, query: str) -> List[Anime]:
         response = await self.client.get(
-            "search/all", params={"type": "small", "q": query}
+            "search/all", params={"type": "big", "q": query}
         )
-        content = response.json.get("content", '')
-        page = self.client.soup(content)
-        results_list = page.find("div", {"class": "result-search-anime"}).find_all(
-            "div", {"class": "result-search-item"}
-        )
+        # print(response.text)
+        page = self.client.soup(response.text)
         results = []
-        for result in results_list:
-            print(result)
-            data = {}
-            data["data"] = {}
-            data["title"] = result.find("h5").text.strip()
-            data["year"] = result.find("span", {"class": "anime-year"}).text.strip()
-            data["other_title"] = (
-                result.find("div", {"class": "text-truncate"}).text.strip()
-                if result.find("div", {"class": "text-truncate"})
-                else ""
-            )
-            data["type"] = result.find(
-                "a", {"href": re_compile(r".*anime/type.*")}
-            ).text.strip()
-            data["url"] = self.client.base_url[:-1] + result.find("h5").find("a").attrs["href"]
-            data["anime_id"] = data["url"][data["url"].rfind("-") + 1 :]
-            results.append(data)
-
+        _ = page.find_all("div", {"class": "animes-grid-item"})
+        for item in _:
+            try:
+                data = {}
+                data["data"] = item.find("a", {"class": "d-block"})
+                data["url"] = data["data"].attrs["href"]
+                data["type"] = data["url"].rsplit("/", 2)[-2]
+                data["item_id"] = (
+                    data["url"][data["url"].rfind("-") + 1 :]
+                    if data["type"] not in ["character", "person"]
+                    else data["url"][data["url"].rfind("/") + 1 : data["url"].find("-")]
+                )
+                data["title"] = {}
+                if data["type"] not in ["character", "person"]:
+                    data["title"]["ru"] = item.find("a", {"href": data["url"], "title": True}.text)
+                    try:
+                        data["title"]["en"] = item.find("div", {"class": "text-gray-dark-6 small mb-1 d-none d-sm-block"}).find("div").text
+                    except Exception:
+                        ...
+                else:
+                    data["title"]["en"] = item.find("h3").find("a").text
+                data["thumbnail"] = data["data"].find("div").attrs["data-original"]
+            except AttributeError:
+                print(">>>", item)
         return results
-    
