@@ -1,10 +1,29 @@
 from typing import List, TypedDict, Unpack, Literal, Dict
 from .adapter import _Client
+from .parser import _Parser
 from enum import Enum
 from datetime import datetime
 
 
-class _Anime:
+class _BaseItem:
+    class Type(Enum):
+        ANIME = "Anime"
+        MANGA = "Manga"
+        CHARACTER = "Character"
+        PERSON = "Person"
+        OTHER = "Other"
+
+    item_type: Literal["Anime", "Manga", "Character", "Person"]
+    parser: _Parser
+    client: _Client
+    data: dict
+
+    @property
+    def id(self) -> int:
+        return self.item_id
+
+
+class _Anime(_BaseItem):
     class Type(Enum):
         TV = "TV"
         MOVIE = "Movie"
@@ -75,6 +94,20 @@ class _Anime:
         completed: datetime
         data: dict
         client: _Client
+        studios: List[str]
+        genres: List[str]
+        tags: List[str]
+        rating: float
+        directors: List[str]
+        actors: List[str]
+        producers: List[str]
+        writers: List[str]
+        editors: List[str]
+        composers: List[str]
+        operators: List[str]
+        designers: List[str]
+        age_rating: Literal["G", "PG", "PG-13", "R", "R+", "NC-17", "NR", "unknown"]
+        
 
     @property
     def mal_id(self) -> int:

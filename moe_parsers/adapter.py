@@ -1,4 +1,4 @@
-from aiohttp import ClientSession
+from aiohttp import ClientSession, TCPConnector
 from asyncio import sleep
 from json import loads
 from requests import request, packages, Response as RequestsModuleResponse
@@ -61,15 +61,26 @@ class _Client:
     def __init__(self, **params: Unpack[_ClientParams]):
         self.__dict__.update(**params)
 
-    def _my(self, key: str):
-        return self.__dict__.get(key, None)
+    class Exceptions:
+        class BaseException(Exception):
+            def __repr__(self):
+                return f"{self.__class__.__name__}({self.__dict__})"
+
+        class RateLimit(BaseException):
+            def __repr__(self):
+                return f"{self.__class__.__name__}({self.__dict__}). You can make the client automatically bypass this exception by setting ratelimit_raise=False in Client() or as a parameter in request()"
+
+    def _my(self, key: str, default=None):
+        return self.__dict__.get(key, default)
 
     def replace_headers(self, *dicts: dict, **headers: Unpack[_ClientHeaders]):
         for d in dicts:
             self.__dict__.get("headers", {}).update(**d)
-        self.__dict__.get("headers", {}).update(
-            **{k.replace("_", "-").title(): v for k, v in headers.items()}
-        )
+        sorted_headers = {
+            k.replace("_", "-").title(): v
+            for k, v in sorted(headers.items(), key=lambda x: x[0].lower())
+        }
+        self.__dict__.get("headers", {}).update(sorted_headers)
 
     def soup(self, *args, **kwargs):
         return BeautifulSoup(*args, **kwargs, features="html.parser")
@@ -84,47 +95,53 @@ class _Client:
         kwargs["url"] = kwargs["url"].replace(" ", "%20")
         if not kwargs["url"].startswith("http"):
             kwargs["url"] = f"{self._my('base_url') or 'https://'}{kwargs['url']}"
+        # if self._my("proxy") or kwargs.get("proxy", None):
+        #     packages.urllib3.disable_warnings()
+        #     response = request(
+        #         method=kwargs.get("method", "get"),
+        #         url=kwargs.get("url"),
+        #         data=kwargs.get("data", None),
+        #         json=kwargs.get("json", None),
+        #         headers=kwargs.get("headers", None),
+        #         proxies={
+        #             "http": self._my("proxy") or kwargs.get("proxy", False),
+        #             "https": self._my("proxy") or kwargs.get("proxy", False),
+        #         },
+        #         params=kwargs.get("params", None),
+        #     )
+        #     response = _RequestResponse(
+        #         text=response.text,
+        #         status=response.status_code,
+        #         headers=response.headers,
+        #         _response=response,
+        #     )
+        # else:
+        session: ClientSession = self._my("session") or ClientSession(
+            headers=kwargs.get("headers", None),
+            connector=TCPConnector(ssl=False) if self._my("proxy") or kwargs.get("proxy", None) else None,
+        )
         if self._my("proxy") or kwargs.get("proxy", None):
-            packages.urllib3.disable_warnings()
-            response = request(
-                method=kwargs.get("method", "get"),
-                url=kwargs.get("url"),
-                data=kwargs.get("data", None),
-                json=kwargs.get("json", None),
-                headers=kwargs.get("headers", None),
-                proxies={
-                    "http": self._my("proxy") or kwargs.get("proxy", False),
-                    "https": self._my("proxy") or kwargs.get("proxy", False),
-                },
-                params=kwargs.get("params", None),
-            )
+            session._ssl = False
+        async with session.request(
+            method=kwargs.get("method", "get"),
+            url=kwargs.get("url"),
+            data=kwargs.get("data", None),
+            json=kwargs.get("json", None),
+            headers=kwargs.get("headers", None) or self._my("headers"),
+            params=kwargs.get("params", None),
+            proxy=self._my("proxy") or kwargs.get("proxy", None),
+        ) as response:
             response = _RequestResponse(
-                text=response.text,
-                status=response.status_code,
+                text=await response.text(),
+                status=response.status,
                 headers=response.headers,
                 _response=response,
             )
-        else:
-            session: ClientSession = self._my("session") or ClientSession(
-                headers=kwargs.get("headers", None)
-            )
-            async with session.request(
-                method=kwargs.get("method", "get"),
-                url=kwargs.get("url"),
-                data=kwargs.get("data", None),
-                json=kwargs.get("json", None),
-                headers=kwargs.get("headers", None),
-                params=kwargs.get("params", None),
-            ) as response:
-                response = _RequestResponse(
-                    text=await response.text(),
-                    status=response.status,
-                    headers=response.headers,
-                    _response=response,
-                )
-            if kwargs.get("close", True):
-                await session.close()
+        if kwargs.get("close", True):
+            await session.close()
         if response.status == 429:
+            if kwargs.get("ratelimit_raise", self._my("ratelimit_raise", True)):
+                raise self.Exceptions.RateLimit
             retry_after = response.headers.get("Retry-After", 1)
             await sleep(float(retry_after))
             kwargs.update({"retries": kwargs.get("retries", 0) + 1})
