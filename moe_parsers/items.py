@@ -23,6 +23,9 @@ class _BaseItem:
         return self.item_id
 
 
+# class
+
+
 class _Anime(_BaseItem):
     class Type(Enum):
         TV = "TV"
@@ -91,6 +94,7 @@ class _Anime(_BaseItem):
         all_titles: List[str]
         description: dict
         announced: datetime
+        started: datetime
         completed: datetime
         data: dict
         client: _Client
@@ -107,7 +111,6 @@ class _Anime(_BaseItem):
         operators: List[str]
         designers: List[str]
         age_rating: Literal["G", "PG", "PG-13", "R", "R+", "NC-17", "NR", "unknown"]
-        
 
     @property
     def mal_id(self) -> int:

@@ -1,6 +1,7 @@
 from ..parser import Parser
-from ..items import _BaseItem
+from ..items import _BaseItem, Anime
 from typing import Unpack, AsyncGenerator
+from datetime import datetime
 
 
 class AniboomParser(Parser):
@@ -77,84 +78,176 @@ class AniboomParser(Parser):
 
     async def get_info(self, link: str) -> dict:
         anime_data = {}
-        self.client.replace_headers({
+        self.client.replace_headers(
+            {
                 "accept": "application/json, text/javascript, */*; q=0.01",
                 "cookie": self.client.headers.get("cookie", ""),
                 "referer": "https://animego.org/",
-                "x-requested-with": "XMLHttpRequest"
-            })
+                "x-requested-with": "XMLHttpRequest",
+            }
+        )
         response = await self.client.get(link + "")
+        with open("test.html", "w", encoding="utf-8") as f:
+            f.write(response.text)
         soup = self.client.soup(response.text)
+
+        # Основная информация
         anime_data["link"] = link
         anime_data["animego_id"] = link[link.rfind("-") + 1 :]
         anime_data["title"] = (
             soup.find("div", class_="anime-title").find("h1").text.strip()
         )
 
-        anime_data["other_titles"] = [
-            syn.text.strip()
-            for syn in soup.find("div", class_="anime-synonyms").find_all("li")
-        ]
-
-        poster_path = soup.find("img").get("src", "")
-        anime_data["poster_url"] = (
-            f'{self.client.base_url[:-1]}{poster_path[poster_path.find("/upload"):]}'
-            if poster_path
-            else ""
+        # Описание
+        description_block = soup.find("div", class_="description")
+        anime_data["description"] = (
+            description_block.text.strip()
+            if description_block
+            else "Описание не найдено"
         )
 
-        anime_info = soup.find("div", class_="anime-info").find("dl")
-        keys = anime_info.find_all("dt")
-        values = anime_info.find_all("dd")
+        # Жанры
+        genres = soup.select("dd.overflow-h a")
+        anime_data["genres"] = [genre.text.strip() for genre in genres]
 
-        anime_data["other_info"] = {}
-        for key, value in zip(keys, values):
-            key_text = key.text.strip().replace("  ", " ")
-            if value.get("class") == ["mt-2", "col-12"] or value.find("hr"):
-                continue
-            if key_text == "Озвучка":
-                continue
-            if key_text == "Жанр":
-                anime_data["genres"] = [genre.text for genre in value.find_all("a")]
-            elif key_text == "Главные герои":
-                anime_data["other_info"]["Главные герои"] = [
-                    hero.text for hero in value.find_all("a")
-                ]
-            elif key_text == "Эпизоды":
-                anime_data["episodes"] = value.text
-            elif key_text == "Статус":
-                anime_data["status"] = value.text
-            elif key_text == "Тип":
-                anime_data["type"] = value.text
-            else:
-                anime_data["other_info"][key_text] = value.text.strip()
+        # Оценка и количество голосов
+        rating_block = soup.find("span", class_="rating-value")
+        anime_data["rating"] = (
+            rating_block.text.strip() if rating_block else "Нет рейтинга"
+        )
 
-        anime_data["description"] = soup.find("div", class_="description").text.strip()
+        rating_count_block = soup.find("div", class_="rating-count")
+        anime_data["rating_count"] = (
+            rating_count_block.text.strip() if rating_count_block else "0"
+        )
 
-        anime_data["screenshots"] = [
-            f"{self.client.base_url[:-1]}{screenshot.get('href')}"
-            for screenshot in soup.find_all("a", class_="screenshots-item")
-        ]
+        # Дата выхода
+        release_date_block = soup.find("span", {"data-label": True})
+        anime_data["release_date"] = (
+            release_date_block.text.strip()
+            if release_date_block
+            else "Дата выхода не найдена"
+        )
 
-        trailer_container = soup.find("div", class_="video-block")
+        # Длительность
+        duration_block = soup.find("dt", string="Длительность")
+        if duration_block:
+            anime_data["duration"] = duration_block.find_next_sibling("dd").text.strip()
+
+        # Студия
+        studio_block = soup.find("dt", string="Студия")
+        if studio_block:
+            anime_data["studio"] = studio_block.find_next_sibling("dd").text.strip()
+
+        # MPAA рейтинг
+        mpaa_block = soup.find("dt", string="Рейтинг MPAA")
+        if mpaa_block:
+            anime_data["mpaa"] = mpaa_block.find_next_sibling("dd").text.strip()
+
+        # Возрастной рейтинг
+        age_block = soup.find("dt", string="Возрастные ограничения")
+        if age_block:
+            anime_data["age_rating"] = age_block.find_next_sibling("dd").text.strip()
+
+        # Озвучка
+        dubbing_block = soup.find("dt", string="Озвучка")
+        if dubbing_block:
+            dubbing_list = dubbing_block.find_next_sibling("dd").find_all("a")
+            anime_data["dubbing"] = [dubbing.text.strip() for dubbing in dubbing_list]
+
+        # Главные герои
+        anime_data["characters"] = []
+        character_blocks = soup.select("dd a[href*='/character/']")
+        for char in character_blocks:
+            char_name = char.text.strip()
+            seiyuu_tag = char.find_next("a", class_="text-link-gray text-underline")
+            seiyuu_name = seiyuu_tag.text.strip() if seiyuu_tag else "Неизвестно"
+
+            anime_data["characters"].append({"name": char_name, "seiyuu": seiyuu_name})
+
+        # Картинка
+        image_block = soup.find("meta", property="og:image")
+        anime_data["image"] = (
+            image_block["content"] if image_block else "Нет изображения"
+        )
+
+        # Трейлер
+        trailer_block = soup.select_one("div.video-block a")
         anime_data["trailer"] = (
-            trailer_container.find("a", class_="video-item").get("href")
-            if trailer_container
-            else None
+            trailer_block["href"] if trailer_block else "Нет трейлера"
         )
 
-        # anime_data["episodes"] = await self.get_episodes(link)
+        # Кадры
+        screenshots = soup.select("div.screenshots-block a img")
+        anime_data["screenshots"] = [img["src"] for img in screenshots]
 
-        try:
-            anime_data["translations"] = await self.get_translations(
-                anime_data["animego_id"]
+        # График выхода серий
+        soup = self.client.soup(
+            (
+                await self.client.get(
+                    link, params={"type": "episodeSchedule", "episodeNumber": "9999"}
+                )
+            ).text
+        )
+        episodes_list = []
+        for ep in soup.find_all("div", {"class": ["row", "m-0"]}):
+            items = ep.find_all("div")
+            num = items[0].find("meta").get_attribute_list("content")[0]
+            ep_title = items[1].text.strip() if items[1].text else ""
+            ep_date = (
+                items[2].find("span").get_attribute_list("data-label")[0]
+                if items[2].find("span")
+                else ""
             )
-        except Exception as exc:
-            anime_data["translations"] = []
+            ep_id = (
+                items[3].find("span").get_attribute_list("data-watched-id")[0]
+                if items[3].find("span")
+                else None
+            )
+            ep_status = "анонс" if items[3].find("span") is None else "вышел"
+            episodes_list.append(
+                {
+                    "num": num,
+                    "title": ep_title,
+                    "date": ep_date,
+                    "status": ep_status,
+                    "episode_id": ep_id,
+                }
+            )
 
-        anime_data["all_titles"] = [anime_data["title"]]
-        anime_data["all_titles"] += [anime_data["other_title"]] if "other_title" in anime_data else []
-        anime_data["all_titles"] += [anime_data["orig_title"]] if "oring_title" in anime_data else []
-
+        episodes = sorted(
+            episodes_list,
+            key=lambda x: int(x["num"]) if x["num"].isdigit() else x["num"],
+        )
+        for i, ep in enumerate(episodes):
+            try:
+                if ep["date"]:
+                    replace_month = {
+                        "янв.": "1",
+                        "февр.": "2",
+                        "мар.": "3",
+                        "апр.": "4",
+                        "мая": "5",
+                        "июня": "6",
+                        "июля": "7",
+                        "авг.": "8",
+                        "сент.": "9",
+                        "окт.": "10",
+                        "нояб.": "11",
+                        "дек.": "12",
+                        "июл.": "7",
+                        "июн.": "6",
+                    }
+                    episodes[i]["date"] = datetime.strptime(
+                        " ".join(
+                            [
+                                x if x not in replace_month else replace_month[x]
+                                for x in episodes[i]["date"].split()
+                            ]
+                        ),
+                        "%d %m %Y",
+                    )
+            except ValueError as exc:
+                episodes[i]["date"] = None
+        anime_data["episodes"] = episodes
         return anime_data
-    

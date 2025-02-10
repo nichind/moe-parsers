@@ -25,15 +25,22 @@ class KodikParser(Parser):
         token = token[: token.find('"')]
         self.token = token
         return token
-    
+
     class _SearchParams(TypedDict, total=False):
         query: str | int
         limit: int = 25
         id_type: Literal["shikimori", "kinopoisk", "imdb"] = None
         strict: bool = False
+        with_details: bool = (False,)
+
+    async def chunk_search(
+        self,
+        query: str | int,
+        limit: int = 25,
+        id_type: Literal["shikimori", "kinopoisk", "imdb"] = None,
+        strict: bool = False,
         with_details: bool = False,
-        
-    async def chunk_search(self, query: str | int, limit: int = 25, id_type: Literal["shikimori", "kinopoisk", "imdb"] = None, strict: bool = False, with_details: bool = False) -> AsyncGenerator[_BaseItem, None]:
+    ) -> AsyncGenerator[_BaseItem, None]:
         if not self.token:
             await self.obtain_token()
 
@@ -49,12 +56,14 @@ class KodikParser(Parser):
         else:
             search_params["title"] = query
 
-        response = await self.client.post("https://kodikapi.com/search", data=search_params)
+        response = await self.client.post(
+            "https://kodikapi.com/search", data=search_params
+        )
         response = response.json
         print(response)
         if not response["total"]:
             return
-        
+
         results = response["results"]
         animes = []
         added_titles = set()
@@ -95,7 +104,7 @@ class KodikParser(Parser):
 
         for i, result in enumerate(animes):
             yield animes[i]
-        
+
     async def search(
         self,
         query: str | int,
@@ -105,7 +114,8 @@ class KodikParser(Parser):
         with_details: bool = False,
     ) -> List[_BaseItem]:
         results = []
-        async for result in self.chunk_search(query, limit, id_type, strict, with_details):
+        async for result in self.chunk_search(
+            query, limit, id_type, strict, with_details
+        ):
             results.append(result)
         return results
-    
