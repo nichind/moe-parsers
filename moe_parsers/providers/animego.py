@@ -1,6 +1,6 @@
 from ..parser import Parser
 from ..items import _BaseItem, Anime
-from typing import Unpack, AsyncGenerator
+from typing import Unpack, AsyncGenerator, List
 from datetime import datetime
 
 
@@ -18,7 +18,13 @@ class AniboomParser(Parser):
         )
         self.client.base_url = "https://animego.org/"
 
-    async def search(self, query: str) -> AsyncGenerator[_BaseItem, None]:
+    async def search(self, q: str) -> List[_BaseItem]:
+        results = []
+        async for result in self.search_generator(q):
+            results.append(result)
+        return results
+
+    async def search_generator(self, query: str) -> AsyncGenerator[_BaseItem, None]:
         response = await self.client.get(
             "search/all", params={"type": "big", "q": query}
         )
@@ -66,34 +72,27 @@ class AniboomParser(Parser):
                     )
 
                 thumbnail = item.find("div", {"class": "anime-grid-lazy lazy"})
-                data["thumbnail"] = thumbnail["data-original"] if thumbnail else None
+                data["thumbnail"] = (
+                    thumbnail.get("data-original", None) if thumbnail else None
+                )
                 self.client.replace_headers(
                     {
                         "Cookie": response.headers["Set-Cookie"],
                     }
                 )
                 yield data
-            except AttributeError as e:
+            except AttributeError:
                 continue
 
-    async def get_info(self, link: str) -> dict:
+    async def get_info(self, url: str) -> dict:
         anime_data = {}
-        self.client.replace_headers(
-            {
-                "accept": "application/json, text/javascript, */*; q=0.01",
-                "cookie": self.client.headers.get("cookie", ""),
-                "referer": "https://animego.org/",
-                "x-requested-with": "XMLHttpRequest",
-            }
-        )
-        response = await self.client.get(link + "")
+        response = await self.client.get(url + "")
         with open("test.html", "w", encoding="utf-8") as f:
             f.write(response.text)
         soup = self.client.soup(response.text)
 
-        # Основная информация
-        anime_data["link"] = link
-        anime_data["animego_id"] = link[link.rfind("-") + 1 :]
+        anime_data["url"] = url
+        anime_data["animego_id"] = url[url.rfind("-") + 1 :]
         anime_data["title"] = (
             soup.find("div", class_="anime-title").find("h1").text.strip()
         )
@@ -160,7 +159,7 @@ class AniboomParser(Parser):
         character_blocks = soup.select("dd a[href*='/character/']")
         for char in character_blocks:
             char_name = char.text.strip()
-            seiyuu_tag = char.find_next("a", class_="text-link-gray text-underline")
+            seiyuu_tag = char.find_next("a", class_="text-url-gray text-underline")
             seiyuu_name = seiyuu_tag.text.strip() if seiyuu_tag else "Неизвестно"
 
             anime_data["characters"].append({"name": char_name, "seiyuu": seiyuu_name})
@@ -185,10 +184,19 @@ class AniboomParser(Parser):
         soup = self.client.soup(
             (
                 await self.client.get(
-                    link, params={"type": "episodeSchedule", "episodeNumber": "9999"}
+                    url, params={"type": "episodeSchedule", "episodeNumber": "9999"}
                 )
             ).text
         )
+
+        anime_data["episodes"] = await self.get_episodes(url)
+
+        return anime_data
+
+    async def get_episodes(self, url: str) -> List[Anime.Episode]:
+        params = {"type": "episodeSchedule", "episodeNumber": "9999"}
+        response = await self.client.get(url, params=params)
+        soup = self.client.soup(response.json.get("content"))
         episodes_list = []
         for ep in soup.find_all("div", {"class": ["row", "m-0"]}):
             items = ep.find_all("div")
@@ -210,7 +218,13 @@ class AniboomParser(Parser):
                     "num": num,
                     "title": ep_title,
                     "date": ep_date,
-                    "status": ep_status,
+                    "status": Anime.Episode.EpisodeStatus.RELEASED
+                    if ep_status == "вышел"
+                    else (
+                        Anime.Episode.EpisodeStatus.ANNOUNCED
+                        if ep_status == "анонс"
+                        else Anime.Episode.EpisodeStatus.UNKNOWN
+                    ),
                     "episode_id": ep_id,
                 }
             )
@@ -247,7 +261,6 @@ class AniboomParser(Parser):
                         ),
                         "%d %m %Y",
                     )
-            except ValueError as exc:
+            except ValueError:
                 episodes[i]["date"] = None
-        anime_data["episodes"] = episodes
-        return anime_data
+        return episodes

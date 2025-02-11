@@ -51,7 +51,7 @@ class _Anime(_BaseItem):
 
     class Episode:
         announced: datetime
-        completed: datetime
+        aired: datetime
         episode_number: int
         episode_id: str
 

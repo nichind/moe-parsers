@@ -1,4 +1,5 @@
 from aiohttp import ClientSession, TCPConnector
+from aiohttp.client import _RequestContextManager
 from asyncio import sleep
 from json import loads
 from typing import TypedDict, Literal, Unpack
@@ -40,14 +41,14 @@ class RequestArgs(TypedDict, total=False):
     max_retries: int
 
 
-class _RequestResponse:
+class RequestResponse:
     status: int
     headers: dict
     text: str
     json: dict
     data: bytes
     soup: BeautifulSoup
-    _response: dict
+    _response: _RequestContextManager
 
     def __init__(self, **kwargs):
         self.__dict__.update(**kwargs)
@@ -92,7 +93,7 @@ class _Client:
     def soup(self, *args, **kwargs):
         return BeautifulSoup(*args, **kwargs, features="html.parser")
 
-    async def request(self, *args, **kwargs: Unpack[RequestArgs]) -> _RequestResponse:
+    async def request(self, *args, **kwargs: Unpack[RequestArgs]) -> RequestResponse:
         if kwargs.get("retries", 0) > self._my("max_retries", 5):
             raise Exception("Too many retries")
         if not kwargs.get("url", None) and args and isinstance(args[0], str):
@@ -119,7 +120,7 @@ class _Client:
             params=kwargs.get("params", None),
             proxy=kwargs.get("proxy", None) or self._my("proxy", None),
         ) as response:
-            response = _RequestResponse(
+            response = RequestResponse(
                 text=await response.text(),
                 status=response.status,
                 headers=response.headers,
