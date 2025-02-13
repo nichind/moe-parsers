@@ -39,6 +39,7 @@ class RequestArgs(TypedDict, total=False):
     retries: int
     ratelimit_raise: bool
     max_retries: int
+    ignore_set_cookie: bool
 
 
 class RequestResponse:
@@ -135,18 +136,22 @@ class _Client:
             await sleep(float(retry_after))
             kwargs.update({"retries": kwargs.get("retries", 0) + 1})
             return await self.request(*args, **kwargs)
+        if "set-cookie" in response.headers.keys() and not kwargs.get(
+            "ignore_set_cookie", False
+        ):
+            self.replace_headers(cookie=response.headers.get("set-cookie"))
         return response
 
-    async def get(self, *args, **kwargs: Unpack[RequestArgs]):
+    async def get(self, *args, **kwargs: Unpack[RequestArgs]) -> RequestResponse:
         return await self.request(method="get", *args, **kwargs)
 
-    async def post(self, *args, **kwargs: Unpack[RequestArgs]):
+    async def post(self, *args, **kwargs: Unpack[RequestArgs]) -> RequestResponse:
         return await self.request(method="post", *args, **kwargs)
 
-    async def put(self, *args, **kwargs: Unpack[RequestArgs]):
+    async def put(self, *args, **kwargs: Unpack[RequestArgs]) -> RequestResponse:
         return await self.request(method="put", *args, **kwargs)
 
-    async def delete(self, *args, **kwargs: Unpack[RequestArgs]):
+    async def delete(self, *args, **kwargs: Unpack[RequestArgs]) -> RequestResponse:
         return await self.request(method="delete", *args, **kwargs)
 
 

@@ -6,14 +6,28 @@ from datetime import datetime
 
 
 class _BaseItem:
-    class Type(Enum):
+    class ItemType(Enum):
         ANIME = "Anime"
         MANGA = "Manga"
         CHARACTER = "Character"
         PERSON = "Person"
         OTHER = "Other"
 
-    item_type: Literal["Anime", "Manga", "Character", "Person"]
+    class IDType(Enum):
+        MAL = "mal"
+        SHIKIMORI = "shikimori"
+        KINPOISK = "kinpoisk"
+        ANIMEGO = "animego"
+        IMDB = "imdb"
+        KODIK = "kodik"
+
+    class Language(Enum):
+        ENGLISH = "en"
+        JAPANESE = "jp"
+        RUSSIAN = "ru"
+        UNKNOWN = "unknown"
+
+    item_type: ItemType
     parser: _Parser
     client: _Client
     data: dict
@@ -23,10 +37,7 @@ class _BaseItem:
         return self.item_id
 
 
-# class
-
-
-class _Anime(_BaseItem):
+class Anime(_BaseItem):
     class Type(Enum):
         TV = "TV"
         MOVIE = "Movie"
@@ -49,11 +60,23 @@ class _Anime(_BaseItem):
         RU = "ru"
         UNKNOWN = "unknown"
 
-    class Episode:
+    class Rating(Enum):
+        G = "G"
+        PG = "PG"
+        PG_13 = "PG-13"
+        R = "R"
+        R_PLUS = "R+"
+        NC_17 = "NC-17"
+        NR = "NR"
+        UNKNOWN = "unknown"
+
+    class Episode(_BaseItem):
+        item_type = "episode"
         announced: datetime
         aired: datetime
-        episode_number: int
-        episode_id: str
+        number: int
+        id: str | int
+        title: str
 
         class EpisodeStatus(Enum):
             RELEASED = "Released"
@@ -61,7 +84,7 @@ class _Anime(_BaseItem):
             ANNOUNCED = "Announced"
             UNKNOWN = "Unknown"
 
-        episode_status: Literal["Released", "Delayed", "Announced", "Unknown"]
+        status: EpisodeStatus
 
         class Video:
             is_raw: bool
@@ -80,58 +103,76 @@ class _Anime(_BaseItem):
 
         videos: List[Video]
 
+        def __repr__(self):
+            return f'<Episode {self.number} ({self.status.value}{(", " + self.aired.strftime("%Y-%m-%d")) if self.aired else ""}) - "{self.title[:30] + "..." if len(self.title) > 30 else self.title}">'
+
         def __init__(self, **kwargs):
             self.__dict__.update(kwargs)
 
-    class Params(TypedDict, total=False):
-        anime_type: Literal["TV", "MOVIE", "OVA", "ONA", "MUSIC", "SPECIAL", "UNKNOWN"]
-        ids: Dict[Literal["id_type"], str]
-        status: Literal["ONGOING", "COMPLETED", "CANCELLED", "HIATUS", "UNKNOWN"]
-        language: Literal["EN", "JP", "RU", "UNKNOWN"]
-        episodes: List["_Anime._Episode"]
-        title: str
-        original_title: str
-        all_titles: List[str]
-        description: dict
-        announced: datetime
-        started: datetime
-        completed: datetime
-        data: dict
-        client: _Client
-        studios: List[str]
-        genres: List[str]
-        tags: List[str]
-        rating: float
-        directors: List[str]
-        actors: List[str]
-        producers: List[str]
-        writers: List[str]
-        editors: List[str]
-        composers: List[str]
-        operators: List[str]
-        designers: List[str]
-        age_rating: Literal["G", "PG", "PG-13", "R", "R+", "NC-17", "NR", "unknown"]
+    item_type = _BaseItem.ItemType.ANIME
+    type: Type
+    ids: Dict[_BaseItem.IDType, str]
+    status: Status
+    language: Language
+    episodes: List[Episode]
+    title: str
+    original_title: str
+    all_titles: List[str]
+    description: dict
+    announced: datetime
+    started: datetime
+    completed: datetime
+    data: dict
+    client: _Client
+    studios: List[str]
+    genres: List[str]
+    tags: List[str]
+    rating: float
+    directors: List[str]
+    actors: List[str]
+    producers: List[str]
+    writers: List[str]
+    editors: List[str]
+    composers: List[str]
+    operators: List[str]
+    designers: List[str]
+    age_rating: Rating
+    episode_duration: int
 
     @property
-    def mal_id(self) -> int:
-        return self.ids.get("mal", None)
+    def total_duration(self) -> int:
+        return self.episode_duration * len(self.episodes)
+    
+    @property
+    def released_duration(self) -> int:
+        return self.total_duration * [episode.status == self.Episode.EpisodeStatus.RELEASED for episode in self.episodes].count(True)
+
+    def get_id(self, id_type: _BaseItem.IDType) -> str | int:
+        return self.ids.get(id_type, None)
+
+    @property
+    def shikimori_id(self) -> str | int:
+        return self.get_id(id_type=_BaseItem.IDType.SHIKIMORI)
+
+    @property
+    def mal_id(self) -> str | int:
+        return self.get_id(id_type=_BaseItem.IDType.MAL)
 
     @property
     def total_episodes(self) -> int:
         return len(self.episodes)
 
-    def __init__(self, **params: Unpack["_Anime.Params"]):
+    def __init__(self, **params):
         self.__dict__.update(params)
 
     def __repr__(self):
         return f"{self.__class__.__name__}({self.__dict__})"
 
 
-class Anime(_Anime):
-    def __init__(self, **params: Unpack["_Anime.Params"]):
-        super().__init__(**params)
-        self.anime_type = self.Type.UNKNOWN
-        self.status = self.Status.UNKNOWN
-        self.language = self.Language.UNKNOWN
-        self.episodes = []
-        self.ids = {}
+class Character(_BaseItem):
+    item_type = _BaseItem.ItemType.CHARACTER
+
+
+class Person(_BaseItem):
+    item_type = _BaseItem.ItemType.PERSON
+    
