@@ -260,6 +260,13 @@ class _Client:
                 headers=response.headers,
                 _response=response,
             )
+        if self.switcher.get_by_url(proxy):
+            self.switcher.get_by_url(proxy).latency = int(
+                (
+                    datetime.now() - self.switcher.get_by_url(proxy).last_used
+                ).total_seconds()
+                * 1000
+            )
         if kwargs.get("close", True):
             await session.close()
         if response.status == 429:
