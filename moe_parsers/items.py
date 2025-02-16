@@ -142,10 +142,13 @@ class Anime(_BaseItem):
     @property
     def total_duration(self) -> int:
         return self.episode_duration * len(self.episodes)
-    
+
     @property
     def released_duration(self) -> int:
-        return self.total_duration * [episode.status == self.Episode.EpisodeStatus.RELEASED for episode in self.episodes].count(True)
+        return self.total_duration * [
+            episode.status == self.Episode.EpisodeStatus.RELEASED
+            for episode in self.episodes
+        ].count(True)
 
     def get_id(self, id_type: _BaseItem.IDType) -> str | int:
         return self.ids.get(id_type, None)
@@ -175,4 +178,3 @@ class Character(_BaseItem):
 
 class Person(_BaseItem):
     item_type = _BaseItem.ItemType.PERSON
-    

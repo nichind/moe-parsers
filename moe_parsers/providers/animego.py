@@ -159,9 +159,7 @@ class AnimegoParser(Parser):
         # Дата выхода
         release_date_block = soup.find("span", {"data-label": True})
         anime_data["release_date"] = (
-            release_date_block.text.strip()
-            if release_date_block
-            else None
+            release_date_block.text.strip() if release_date_block else None
         )
 
         if anime_data["release_date"]:
@@ -285,17 +283,27 @@ class AnimegoParser(Parser):
             ]
 
         anime_data["status"] = (
-            Anime.Status.COMPLETED if anime_data["completed"] else (Anime.Status.ONGOING if anime_data["started"] else Anime.Status.UNKNOWN)
+            Anime.Status.COMPLETED
+            if anime_data["completed"]
+            else (
+                Anime.Status.ONGOING if anime_data["started"] else Anime.Status.UNKNOWN
+            )
         )
 
-        anime_data["ids"] = {}
-        anime_data["ids"][Anime.IDType.ANIMEGO] = anime_data["animego_id"]
+        anime_data["shikimori_id"]
+
+        anime_data["ids"] = {
+            Anime.IDType.ANIMEGO: anime_data["animego_id"],
+            Anime.IDType.MAL: None,
+            Anime.IDType.KINPOISK: None,
+            Anime.IDType.SHIKIMORI: None,
+        }
         anime = Anime(**anime_data)
 
         return anime_data
 
     async def get_episodes(self, url: str) -> List[Anime.Episode]:
-        params = {"type": "episodeSchedule", "episodeNumber": "0"}
+        params = {"type": "episodeSchedule", "episodeNumber": "9999"}
         response = await self.client.get(url, params=params)
         soup = self.client.soup(response.json.get("content"))
         episodes_list = []

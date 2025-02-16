@@ -9,3 +9,4 @@ __pycache__
 *.sqlite
 !tests.py
 test.*
+proxies*

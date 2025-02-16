@@ -1,10 +1,120 @@
 from aiohttp import ClientSession, TCPConnector
 from aiohttp.client import _RequestContextManager
-from asyncio import sleep
+from asyncio import sleep, wait, FIRST_COMPLETED, create_task, run
 from json import loads
-from typing import TypedDict, Literal, Unpack
+from typing import TypedDict, Literal, Unpack, List
 from faker import Faker
 from bs4 import BeautifulSoup
+from datetime import datetime
+from urllib.parse import urlparse
+
+
+class _ProxyParams(TypedDict, total=False):
+    protocol: Literal["http", "https", "socks4", "socks5"]
+    ip: str
+    port: str
+    username: str
+    password: str
+
+
+class Proxy:
+    def __init__(self, *args, url: str = None, **kwargs: Unpack[_ProxyParams]):
+        self.latency = None
+        self.client = None
+        self.last_used = None
+        self.use_count = 0
+        if url or len(args) == 1:
+            parsed = urlparse(url or args[0])
+            self.ip = parsed.hostname
+            self.port = parsed.port
+            self.protocol = parsed.scheme
+            self.username = parsed.username
+            self.password = parsed.password
+        elif args:
+            self.ip = args[0]
+            self.port = args[1]
+            self.protocol = args[2] if len(args) > 2 else kwargs.get("protocol", "http")
+            self.username = args[3] if len(args) > 3 else kwargs.get("username", None)
+            self.password = args[4] if len(args) > 4 else kwargs.get("password", None)
+        self.__dict__.update(**kwargs)
+
+    @property
+    def url(self):
+        return (
+            f"{self.protocol}://{self.username}:{self.password}@{self.ip}:{self.port}"
+            if self.username and self.password
+            else f"{self.protocol}://{self.ip}:{self.port}"
+        )
+
+    def __repr__(self):
+        return f"Proxy({self.url})"
+
+
+class ProxySwithcher:
+    proxies: List[Proxy]
+
+    def __init__(self, proxies: List[Proxy | str] = []):
+        self.proxies = proxies
+
+    async def check(self, proxy: Proxy | str) -> bool:
+        try:
+            start = datetime.now()
+            if isinstance(proxy, str):
+                proxy = Proxy(url=proxy)
+            if not proxy.client:
+                proxy.client = Client()
+            response = await proxy.client.request(
+                method="get",
+                url="https://httpbin.org/ip",
+                proxy=proxy.url if isinstance(proxy, Proxy) else proxy,
+                ratelimit_raise=False,
+                timeout=5,
+                use_switcher=False,
+            )
+            if response.status != 200:
+                raise Exception
+            proxy.latency = int((datetime.now() - start).total_seconds() * 1000)
+            return proxy
+        except Exception:
+            return False
+
+    async def checkadd(self, proxy: Proxy | str | List[Proxy | str]):
+        if isinstance(proxy, list):
+            tasks = []
+            for p in proxy:
+                task = create_task(self.checkadd(p))
+                tasks.append(task)
+                done, pending = await wait(tasks, return_when=FIRST_COMPLETED)
+                for task in done:
+                    await task
+                tasks = list(pending)
+            return
+        _ = await self.check(proxy)
+        if _:
+            self.proxies.append(proxy if isinstance(proxy, Proxy) else _)
+            return True
+        return False
+
+    def add(self, proxy: Proxy | str | List[Proxy | str]):
+        if isinstance(proxy, list):
+            for p in proxy:
+                self.add(p)
+            return
+        self.proxies.append(proxy if isinstance(proxy, Proxy) else Proxy(url=proxy))
+
+    def sort(self):
+        self.proxies.sort(key=lambda x: (x.use_count, x.latency))
+
+    def pick(self, ignore: List[Proxy | str] = []) -> Proxy:
+        self.sort()
+        for proxy in self.proxies:
+            if proxy not in ignore and proxy.url not in ignore:
+                return proxy
+
+    def get_by_url(self, url: str) -> Proxy:
+        for proxy in self.proxies:
+            if proxy.url == url:
+                return proxy
 
 
 class _ClientHeaders(TypedDict, total=False):
@@ -24,6 +134,7 @@ class _ClientParams(TypedDict, total=False):
     headers: _ClientHeaders
     max_retries: int
     base_url: str
+    proxies: "ProxySwithcher" | List[Proxy | str]
 
 
 class RequestArgs(TypedDict, total=False):
@@ -34,12 +145,14 @@ class RequestArgs(TypedDict, total=False):
     params: dict
     data: dict
     cookie: str
-    proxy: str
+    proxy: Proxy | str
     json: dict
     retries: int
     ratelimit_raise: bool
     max_retries: int
     ignore_set_cookie: bool
+    timeout: int
+    use_switcher: bool
 
 
 class RequestResponse:
@@ -68,7 +181,11 @@ class RequestResponse:
 
 class _Client:
     def __init__(self, **params: Unpack[_ClientParams]):
+        self.switcher = ProxySwithcher()
         self.__dict__.update(**params)
+        if "proxies" in params and isinstance(params["proxies"], list):
+            for proxy in params["proxies"]:
+                run(self.switcher.checkadd(proxy))
 
     class Exceptions:
         class BaseException(Exception):
@@ -94,6 +211,10 @@ class _Client:
     def soup(self, *args, **kwargs):
         return BeautifulSoup(*args, **kwargs, features="html.parser")
 
+    async def close_session(self):
+        if self._my("session"):
+            await self._my("session").close()
+
     async def request(self, *args, **kwargs: Unpack[RequestArgs]) -> RequestResponse:
         if kwargs.get("retries", 0) > self._my("max_retries", 5):
             raise Exception("Too many retries")
@@ -112,6 +233,17 @@ class _Client:
         )
         if self._my("proxy") or kwargs.get("proxy", None):
             session._ssl = False
+        if (
+            not kwargs.get("use_switcher", True)
+            or len(self.switcher.proxies) == 0
+            or "proxy" in kwargs
+        ):
+            proxy = kwargs.get("proxy", None) or self._my("proxy", None)
+        else:
+            proxy = self.switcher.pick(ignore=kwargs.get("ignore_proxies", []))
+            proxy.last_used = datetime.now()
+            proxy.use_count += 1
+            proxy = proxy.url
         async with session.request(
             method=kwargs.get("method", "get"),
             url=kwargs.get("url"),
@@ -119,7 +251,8 @@ class _Client:
             json=kwargs.get("json", None),
             headers=kwargs.get("headers", None) or self._my("headers"),
             params=kwargs.get("params", None),
-            proxy=kwargs.get("proxy", None) or self._my("proxy", None),
+            proxy=proxy,
+            timeout=kwargs.get("timeout", None),
         ) as response:
             response = RequestResponse(
                 text=await response.text(),
@@ -135,6 +268,10 @@ class _Client:
             retry_after = response.headers.get("Retry-After", 1)
             await sleep(float(retry_after))
             kwargs.update({"retries": kwargs.get("retries", 0) + 1})
+            if kwargs.get("use_switcher", True) and len(self.switcher.proxies) > 0:
+                ignored = kwargs.get("ignore_proxies", [])
+                ignored.append(self.switcher.get_by_url(proxy))
+                kwargs.update({"ignore_proxies": ignored})
             return await self.request(*args, **kwargs)
         if "set-cookie" in response.headers.keys() and not kwargs.get(
             "ignore_set_cookie", False
