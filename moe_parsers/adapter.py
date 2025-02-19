@@ -199,6 +199,9 @@ class _Client:
     def _my(self, key: str, default=None):
         return self.__dict__.get(key, default)
 
+    def json(self, text):
+        return loads(text)
+
     def replace_headers(self, *dicts: dict, **headers: Unpack[_ClientHeaders]):
         for d in dicts:
             self._my("headers", {}).update(**d)

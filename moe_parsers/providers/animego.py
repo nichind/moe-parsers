@@ -2,6 +2,11 @@ from ..parser import Parser
 from ..items import _BaseItem, Anime
 from typing import Unpack, AsyncGenerator, List
 from datetime import datetime
+from cutlet import Cutlet
+from difflib import SequenceMatcher
+
+
+katsu = Cutlet()
 
 
 class AnimegoParser(Parser):
@@ -68,7 +73,6 @@ class AnimegoParser(Parser):
         )
         page = self.client.soup(response.text)  # yummy!
         items = page.find_all("div", {"class": "animes-grid-item"})
-
         for item in items:
             try:
                 data = {}
@@ -108,7 +112,6 @@ class AnimegoParser(Parser):
                         if item.find("h3", {"class": "h5 font-weight-normal"})
                         else None
                     )
-
                 thumbnail = item.find("div", {"class": "anime-grid-lazy lazy"})
                 data["thumbnail"] = (
                     thumbnail.get("data-original", None) if thumbnail else None
@@ -126,15 +129,51 @@ class AnimegoParser(Parser):
         anime_data = {}
         response = await self.client.get(url)
         soup = self.client.soup(response.text)
-
-        with open("test.html", "w", encoding="utf-8") as f:
-            f.write(soup.prettify())
-
         anime_data["url"] = url
-        anime_data["animego_id"] = int(url[url.rfind("-") + 1 :])
-        anime_data["title"] = (
-            soup.find("div", class_="anime-title").find("h1").text.strip()
+
+        script_block = soup.find("script", type="application/ld+json")
+        anime_data["ld_json"] = (
+            self.client.json(script_block.text) if script_block else None
         )
+
+        anime_data["animego_id"] = int(url[url.rfind("-") + 1 :])
+        anime_data["title"] = {
+            Anime.Language.RUSSIAN: (
+                soup.find("div", class_="anime-title").find("h1").text.strip()
+            ),
+            Anime.Language.JAPANESE: [
+                title
+                for title in anime_data["ld_json"]["alternativeHeadline"]
+                if any(
+                    "\u3000" <= char <= "\u303f"
+                    or "\u3040" <= char <= "\u309f"
+                    or "\u30a0" <= char <= "\u30ff"
+                    or "\uff00" <= char <= "\uff9f"
+                    or "\U00010000" <= char <= "\U0010ffff"
+                    for char in title
+                )
+            ],
+            Anime.Language.ROMAJI: [
+                title
+                for title in anime_data["ld_json"]["alternativeHeadline"]
+                if any(
+                    SequenceMatcher(
+                        None,
+                        title.strip().lower(),
+                        katsu.romaji(romaji).strip().lower(),
+                    ).ratio()
+                    >= 0.55
+                    for romaji in anime_data["ld_json"]["alternativeHeadline"]
+                    if katsu.romaji(romaji).strip() != romaji.strip()
+                )
+            ]
+        }
+        anime_data["title"][Anime.Language.ENGLISH] = [
+                title
+                for title in anime_data["ld_json"]["alternativeHeadline"]
+                if all(ord(char) < 128 for char in title)
+                and title not in anime_data["title"][Anime.Language.JAPANESE] and title not in anime_data["title"][Anime.Language.ROMAJI]
+        ]
 
         # Описание
         description_block = soup.find("div", class_="description")
@@ -216,9 +255,7 @@ class AnimegoParser(Parser):
             anime_data["mpaa"] = mpaa_block.find_next_sibling("dd").text.strip()
 
         # Возрастной рейтинг
-        age_block = soup.find("dt", string="Возрастные ограничения")
-        if age_block:
-            anime_data["age_rating"] = age_block.find_next_sibling("dd").text.strip()
+        anime_data["age_rating"] = anime_data["ld_json"].get("contentRating", None)
 
         # Озвучка
         dubbing_block = soup.find("dt", string="Озвучка")
@@ -238,7 +275,14 @@ class AnimegoParser(Parser):
                 )
             except AttributeError:
                 seiyuu_name = None
-            anime_data["characters"].append({"name": char_name, "seiyuu": seiyuu_name})
+            _ = {"name": char_name, "seiyuu": seiyuu_name}
+            try:
+                for character in anime_data["ld_json"]["actor"]:
+                    if character.get("@type") == "Person" and character.get("name").strip().lower() == _["name"].strip().lower():
+                        _["seiyuu_url"] = character.get("url")
+            except ValueError:
+                ...
+            anime_data["characters"].append(_)
 
         # Картинка
         image_block = soup.find("meta", property="og:image")
@@ -290,15 +334,16 @@ class AnimegoParser(Parser):
             )
         )
 
-        anime_data["shikimori_id"]
-
+        anime_data["shikimori_id"] = None
+        anime_data["mal_id"] = None
         anime_data["ids"] = {
             Anime.IDType.ANIMEGO: anime_data["animego_id"],
-            Anime.IDType.MAL: None,
+            Anime.IDType.MAL: anime_data["mal_id"],
             Anime.IDType.KINPOISK: None,
-            Anime.IDType.SHIKIMORI: None,
+            Anime.IDType.SHIKIMORI: anime_data["shikimori_id"],
         }
         anime = Anime(**anime_data)
+        anime.get_id("animego")
 
         return anime_data
 
