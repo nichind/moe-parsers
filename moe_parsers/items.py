@@ -201,8 +201,22 @@ class Anime(_BaseItem):
 
 
 class Manga(_BaseItem):
+    class Type(XEnum):
+        MANHWA = "manhwa"
+        MANHUA = "manhua"
+        LIGHT_NOVEL = "light novel"
+        NOVEL = "novel"
+        ONE_SHOT = "one-shot"
+        DOUJIN = "doujin"
+        UNKNOWN = "unknown"
+    
     item_type = _BaseItem.ItemType.MANGA
-
+    type: Type
+    ids: Dict[_BaseItem.IDType, str | int]
+    status: Anime.Status
+    volumes: int
+    chapters: int
+    
 
 class Character(_BaseItem):
     item_type = _BaseItem.ItemType.CHARACTER
@@ -224,4 +238,6 @@ class Person(_BaseItem):
     name: Dict[_BaseItem.Language, List[str] | str]
     birthdate: datetime
     deathdate: datetime
-    cast_in: List[Anime | Manga | Dict[_BaseItem.ItemType, Dict[_BaseItem.IDType, str | int]]]
+    cast_in: List[
+        Anime | Manga | Dict[_BaseItem.ItemType, Dict[_BaseItem.IDType, str | int]]
+    ]

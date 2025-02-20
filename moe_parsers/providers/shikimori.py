@@ -1,8 +1,3 @@
-from re import S
-from select import KQ_NOTE_LOWAT
-from time import strftime
-
-from pkg_resources import yield_lines
 from ..parser import Parser
 from ..items import _BaseItem, Anime, Character, Person
 from typing import Literal, TypedDict, Unpack, AsyncGenerator, List
@@ -25,7 +20,7 @@ class ShikimoriParser(Parser):
         self.client.base_url = "https://shikimori.one/"
 
     class SearchArguments(TypedDict, total=False):
-        searachType: (
+        searchType: (
             List[Literal["animes", "mangas", "character", "person"]]
             | Literal["autocomplete", "all"]
         )
@@ -75,6 +70,20 @@ class ShikimoriParser(Parser):
                     "!tv_special",
                     "!pv",
                     "!cm",
+                    "doujin",
+                    "manga",
+                    "manhua",
+                    "manhwa",
+                    "light_novel",
+                    "novel",
+                    "one_shot",
+                    "!doujin",
+                    "!manga",
+                    "!manhua",
+                    "!manhwa",
+                    "!light_novel",
+                    "!novel",
+                    "!one_shot",
                 ]
             ]
             | str
@@ -154,6 +163,7 @@ class ShikimoriParser(Parser):
         )
         genre: str | list
         studio: str | list
+        publisher: str | list
         franchaise: str | list
         censored: bool
         mylist: (
@@ -177,22 +187,45 @@ class ShikimoriParser(Parser):
         )
         ids: str | list
         excludeIds: str | list
+        isSeyu: bool
+        isProducer: bool
+        isMangaka: bool
         search: str
 
     async def search_generator(
         self, **kwargs: Unpack[SearchArguments]
     ) -> AsyncGenerator[_BaseItem, None]:
-        if "startPage" not in kwargs:
-            kwargs["startPage"] = 1
-        if "endPage" not in kwargs:
-            kwargs["endPage"] = 1
-        if "limit" not in kwargs:
-            kwargs["limit"] = 50
-        for page in range(kwargs["endPage"] - kwargs["startPage"] + 1):
-            response = await self.client.get(
-                url="https://shikimori.one/api/animes", page=page + 1, params={**kwargs}
-            )
-            yield response.json
+        """A generator which yields search results from Shikimori."""
+        start_page = kwargs.get("startPage", 1)
+        end_page = kwargs.get("endPage", start_page)
+        limit = kwargs.get("limit", 20)
+        kwargs["limit"] = limit
+        search_types = kwargs.get("searchType", ["animes", "mangas"])
 
-    async def w(self):
-        await self.search_generator()
+        if "searchType" in kwargs:
+            del kwargs["searchType"]
+
+        if "person" in search_types:
+            search_types.remove("person")
+            search_types.append("people/search")
+
+        if "character" in search_types:
+            search_types.remove("character")
+            search_types.append("character/search")
+
+        for page in range(start_page, end_page + 1):
+            for path in search_types:
+                response = await self.client.get(
+                    url="https://shikimori.one/api/" + path,
+                    page=page,
+                    params={
+                        key: ",".join(value) if isinstance(value, list) else value
+                        for key, value in kwargs.items()
+                    },
+                )
+                for result in response.json:
+                    # item = 
+                    yield result
+
+    async def search(self, **kwargs: Unpack[SearchArguments]) -> List[_BaseItem]:
+        return [item async for item in self.search_generator(**kwargs)]

@@ -156,6 +156,7 @@ class RequestArgs(TypedDict, total=False):
     timeout: int
     use_switcher: bool
     ignore_codes: List[int]
+    page: int
 
 
 class RequestResponse:
@@ -257,7 +258,9 @@ class _Client:
             data=kwargs.get("data", None),
             json=kwargs.get("json", None),
             headers=kwargs.get("headers", None) or self._my("headers"),
-            params=kwargs.get("params", None),
+            params={**kwargs.get("params", {}), "page": kwargs.get("page", 1)}
+            if kwargs.get("page", None)
+            else kwargs.get("params", None),
             proxy=proxy,
             timeout=kwargs.get("timeout", None),
         ) as response:
@@ -267,7 +270,7 @@ class _Client:
                 headers=response.headers,
                 _response=response,
             )
-        print
+        print(response)
         if self.switcher.get_by_url(proxy):
             self.switcher.get_by_url(proxy).latency = int(
                 (
