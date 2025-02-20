@@ -42,6 +42,7 @@ class _BaseItem:
         ROMAJI = "ro"
         UNKNOWN = "unknown"
 
+    item_id: str | int
     item_type: ItemType
     parser: _Parser
     client: _Client
@@ -124,7 +125,7 @@ class Anime(_BaseItem):
         votes: int
         max_rating: int
         min_rating: int
-        
+
         def __init__(self, rating: int):
             super().__init__(rating)
             self.rating = rating
@@ -199,9 +200,28 @@ class Anime(_BaseItem):
         return f"{self.__class__.__name__}({self.__dict__})"
 
 
+class Manga(_BaseItem):
+    item_type = _BaseItem.ItemType.MANGA
+
+
 class Character(_BaseItem):
     item_type = _BaseItem.ItemType.CHARACTER
 
 
 class Person(_BaseItem):
+    class Type(XEnum):
+        SEIYUU = "voice actor"
+        DIRECTOR = "director"
+        PRODUCER = "producer"
+        WRITER = "writer"
+        EDITOR = "editor"
+        COMPOSER = "composer"
+        OPERATOR = "operator"
+        DESIGNER = "designer"
+
     item_type = _BaseItem.ItemType.PERSON
+    type: Type
+    name: Dict[_BaseItem.Language, List[str] | str]
+    birthdate: datetime
+    deathdate: datetime
+    cast_in: List[Anime | Manga | Dict[_BaseItem.ItemType, Dict[_BaseItem.IDType, str | int]]]

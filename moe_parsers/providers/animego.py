@@ -1,5 +1,5 @@
 from ..parser import Parser
-from ..items import _BaseItem, Anime
+from ..items import _BaseItem, Anime, Character, Person
 from typing import Unpack, AsyncGenerator, List
 from datetime import datetime
 from cutlet import Cutlet
@@ -50,7 +50,7 @@ class AnimegoParser(Parser):
     }
 
     @classmethod
-    def string2datetime(cls, string) -> datetime:
+    def string2datetime(cls, string, format="%d %m %Y") -> datetime:
         return datetime.strptime(
             " ".join(
                 [
@@ -58,7 +58,7 @@ class AnimegoParser(Parser):
                     for x in string.split()
                 ]
             ),
-            "%d %m %Y",
+            format,
         )
 
     async def search(self, q: str) -> List[_BaseItem]:
@@ -68,9 +68,7 @@ class AnimegoParser(Parser):
         return results
 
     async def search_generator(self, query: str) -> AsyncGenerator[_BaseItem, None]:
-        response = await self.client.get(
-            "search/all", params={"type": "big", "q": query}
-        )
+        response = await self.client.get("search/all", params={"q": query})
         page = self.client.soup(response.text)  # yummy!
         items = page.find_all("div", {"class": "animes-grid-item"})
         for item in items:
@@ -162,17 +160,18 @@ class AnimegoParser(Parser):
                         title.strip().lower(),
                         katsu.romaji(romaji).strip().lower(),
                     ).ratio()
-                    >= 0.55
+                    >= 0.75
                     for romaji in anime_data["ld_json"]["alternativeHeadline"]
                     if katsu.romaji(romaji).strip() != romaji.strip()
                 )
-            ]
+            ],
         }
         anime_data["title"][Anime.Language.ENGLISH] = [
-                title
-                for title in anime_data["ld_json"]["alternativeHeadline"]
-                if all(ord(char) < 128 for char in title)
-                and title not in anime_data["title"][Anime.Language.JAPANESE] and title not in anime_data["title"][Anime.Language.ROMAJI]
+            title
+            for title in anime_data["ld_json"]["alternativeHeadline"]
+            if all(ord(char) < 128 for char in title)
+            and title not in anime_data["title"][Anime.Language.JAPANESE]
+            and title not in anime_data["title"][Anime.Language.ROMAJI]
         ]
 
         # Описание
@@ -196,31 +195,20 @@ class AnimegoParser(Parser):
         )
 
         # Дата выхода
-        release_date_block = soup.find("span", {"data-label": True})
-        anime_data["release_date"] = (
-            release_date_block.text.strip() if release_date_block else None
-        )
-
-        if anime_data["release_date"]:
-            if "по" not in anime_data["release_date"]:
-                anime_data["started"] = self.string2datetime(
-                    anime_data["release_date"].replace("с ", "")
-                )
-                anime_data["completed"] = (
-                    anime_data["started"]
-                    if "с " not in anime_data["release_date"]
-                    else None
-                )
-            else:
-                anime_data["started"] = self.string2datetime(
-                    anime_data["release_date"]
-                    .split(" по ")[0]
-                    .replace("с ", "")
-                    .strip()
-                )
-                anime_data["completed"] = self.string2datetime(
-                    anime_data["release_date"].split(" по ")[1].strip()
-                )
+        if "startDate" in anime_data["ld_json"]:
+            anime_data["started"] = self.string2datetime(
+                anime_data["ld_json"]["startDate"], "%Y-%m-%d"
+            )
+            anime_data["completed"] = (
+                self.string2datetime(anime_data["ld_json"]["endDate"], "%Y-%m-%d")
+                if "endDate" in anime_data["ld_json"]
+                else None
+            )
+        elif "createdAt" in anime_data["ld_json"]:
+            anime_data["started"] = self.string2datetime(
+                anime_data["ld_json"]["createdAt"], "%Y-%m-%d"
+            )
+            anime_data["completed"] = anime_data["started"]
         else:
             anime_data["started"], anime_data["completed"] = None, None
 
@@ -277,9 +265,14 @@ class AnimegoParser(Parser):
                 seiyuu_name = None
             _ = {"name": char_name, "seiyuu": seiyuu_name}
             try:
-                for character in anime_data["ld_json"]["actor"]:
-                    if character.get("@type") == "Person" and character.get("name").strip().lower() == _["name"].strip().lower():
-                        _["seiyuu_url"] = character.get("url")
+                for person in anime_data["ld_json"]["actor"]:
+                    if (
+                        person.get("name").strip().lower()
+                        == _.get("seiyuu").strip().lower()
+                        if _.get("seiyuu")
+                        else None
+                    ):
+                        _["seiyuu_url"] = person.get("url")
             except ValueError:
                 ...
             anime_data["characters"].append(_)
@@ -314,6 +307,20 @@ class AnimegoParser(Parser):
                 )
             )
 
+        anime_data["status"] = (
+            Anime.Status.COMPLETED
+            if anime_data["completed"]
+            else (
+                Anime.Status.ONGOING if anime_data["started"] else Anime.Status.UNKNOWN
+            )
+        )
+
+        for person in anime_data["ld_json"].get("director", []):
+            anime_data["director"] = {
+                "name": person.get("name", None),
+                "url": person.get("url", None),
+            }
+
         # График выхода серий
         anime_data["episodes"] = await self.get_episodes(url)
         if not anime_data["episodes"] and anime_data["type"] in [Anime.Type.MOVIE]:
@@ -325,14 +332,6 @@ class AnimegoParser(Parser):
                     status=Anime.Episode.EpisodeStatus.RELEASED,
                 )
             ]
-
-        anime_data["status"] = (
-            Anime.Status.COMPLETED
-            if anime_data["completed"]
-            else (
-                Anime.Status.ONGOING if anime_data["started"] else Anime.Status.UNKNOWN
-            )
-        )
 
         anime_data["shikimori_id"] = None
         anime_data["mal_id"] = None

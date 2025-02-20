@@ -72,10 +72,11 @@ class ProxySwithcher:
                 use_switcher=False,
             )
             if response.status != 200:
-                raise Exception
+                raise Exception(f"Status code: {response.status}")
             proxy.latency = int((datetime.now() - start).total_seconds() * 1000)
             return proxy
-        except Exception:
+        except Exception as exc:
+            print(f"{proxy} failed the check: {exc}")
             return False
 
     async def checkadd(self, proxy: Proxy | str | List[Proxy | str]):
@@ -110,6 +111,7 @@ class ProxySwithcher:
         for proxy in self.proxies:
             if proxy not in ignore and proxy.url not in ignore:
                 return proxy
+        return self.proxies[0]
 
     def get_by_url(self, url: str) -> Proxy:
         for proxy in self.proxies:
@@ -153,6 +155,7 @@ class RequestArgs(TypedDict, total=False):
     ignore_set_cookie: bool
     timeout: int
     use_switcher: bool
+    ignore_codes: List[int]
 
 
 class RequestResponse:
@@ -219,6 +222,7 @@ class _Client:
             await self._my("session").close()
 
     async def request(self, *args, **kwargs: Unpack[RequestArgs]) -> RequestResponse:
+        print(kwargs.items())
         if kwargs.get("retries", 0) > self._my("max_retries", 5):
             raise Exception("Too many retries")
         if not kwargs.get("url", None) and args and isinstance(args[0], str):
@@ -263,6 +267,7 @@ class _Client:
                 headers=response.headers,
                 _response=response,
             )
+        print
         if self.switcher.get_by_url(proxy):
             self.switcher.get_by_url(proxy).latency = int(
                 (
@@ -272,13 +277,31 @@ class _Client:
             )
         if kwargs.get("close", True):
             await session.close()
+        if (
+            len(str(response.status)) == 3
+            and str(response.status).startswith("5")
+            and (
+                response.status
+                not in kwargs.get("ingore_codes", self._my("ingore_codes", []))
+            )
+        ):
+            await sleep(0.2)
+            kwargs.update({"retries": kwargs.get("retries", 0) + 1})
+            if kwargs.get("use_switcher", True) and len(self.switcher.proxies) > 1:
+                ignored = kwargs.get("ignore_proxies", [])
+                ignored.append(self.switcher.get_by_url(proxy))
+                kwargs.update({"ignore_proxies": ignored})
+            print(
+                f"{response} receieved code {response.status}, retrying... (disable this by providing the status code to the ignore_codes list parameter)"
+            )
+            return await self.request(*args, **kwargs)
         if response.status == 429:
             if kwargs.get("ratelimit_raise", self._my("ratelimit_raise", True)):
                 raise self.Exceptions.RateLimit
             retry_after = response.headers.get("Retry-After", 1)
             await sleep(float(retry_after))
             kwargs.update({"retries": kwargs.get("retries", 0) + 1})
-            if kwargs.get("use_switcher", True) and len(self.switcher.proxies) > 0:
+            if kwargs.get("use_switcher", True) and len(self.switcher.proxies) > 1:
                 ignored = kwargs.get("ignore_proxies", [])
                 ignored.append(self.switcher.get_by_url(proxy))
                 kwargs.update({"ignore_proxies": ignored})
