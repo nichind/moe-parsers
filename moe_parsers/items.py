@@ -47,10 +47,18 @@ class _BaseItem:
     parser: _Parser
     client: _Client
     data: dict
+    image: str
+    thumbnail: str
 
     @property
     def id(self) -> int:
         return self.item_id
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}({self.__dict__})"
+
+    def __init__(self, **params):
+        self.__dict__.update(params)
 
 
 class Anime(_BaseItem):
@@ -116,9 +124,6 @@ class Anime(_BaseItem):
 
         def __repr__(self):
             return f'<Episode {self.number} ({self.status.value}{(", " + self.aired.strftime("%Y-%m-%d")) if self.aired else ""}) - "{self.title[:30] + "..." if len(self.title) > 30 else self.title}">'
-
-        def __init__(self, **kwargs):
-            self.__dict__.update(kwargs)
 
     class Rating:
         rating: float
@@ -193,9 +198,6 @@ class Anime(_BaseItem):
     def total_episodes(self) -> int | None:
         return len(self.episodes) if self.episodes else None
 
-    def __init__(self, **params):
-        self.__dict__.update(params)
-
     def __repr__(self):
         return f"{self.__class__.__name__}({self.__dict__})"
 
@@ -209,14 +211,14 @@ class Manga(_BaseItem):
         ONE_SHOT = "one-shot"
         DOUJIN = "doujin"
         UNKNOWN = "unknown"
-    
+
     item_type = _BaseItem.ItemType.MANGA
     type: Type
     ids: Dict[_BaseItem.IDType, str | int]
     status: Anime.Status
     volumes: int
     chapters: int
-    
+
 
 class Character(_BaseItem):
     item_type = _BaseItem.ItemType.CHARACTER
@@ -237,7 +239,7 @@ class Person(_BaseItem):
     type: Type
     name: Dict[_BaseItem.Language, List[str] | str]
     birthdate: datetime
-    deathdate: datetime
+    passingdate: datetime
     cast_in: List[
         Anime | Manga | Dict[_BaseItem.ItemType, Dict[_BaseItem.IDType, str | int]]
     ]

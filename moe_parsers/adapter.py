@@ -270,7 +270,6 @@ class _Client:
                 headers=response.headers,
                 _response=response,
             )
-        print(response)
         if self.switcher.get_by_url(proxy):
             self.switcher.get_by_url(proxy).latency = int(
                 (
@@ -294,9 +293,6 @@ class _Client:
                 ignored = kwargs.get("ignore_proxies", [])
                 ignored.append(self.switcher.get_by_url(proxy))
                 kwargs.update({"ignore_proxies": ignored})
-            print(
-                f"{response} receieved code {response.status}, retrying... (disable this by providing the status code to the ignore_codes list parameter)"
-            )
             return await self.request(*args, **kwargs)
         if response.status == 429:
             if kwargs.get("ratelimit_raise", self._my("ratelimit_raise", True)):
