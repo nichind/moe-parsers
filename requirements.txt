@@ -1,8 +1,11 @@
-pytest==7.2.2
-pytest-cov==4.0.0
+pytest==8.3.4
+pytest-cov==6.0.0
 pytest-asyncio
-ruff==v0.0.260
+ruff==v0.9.6
 coverage-badge~=1.1.0
 aiohttp
 beautifulsoup4
 python-dotenv
+Faker==36.1.1
+cutlet==0.5.0
+unidic-lite==1.0.8
