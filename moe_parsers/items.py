@@ -20,12 +20,12 @@ class XEnum(Enum):
 
 class _BaseItem:
     class ItemType(XEnum):
-        ANIME = "Anime"
-        MANGA = "Manga"
-        CHARACTER = "Character"
-        PERSON = "Person"
-        OTHER = "Other"
-        EPISODE = "Episode"
+        ANIME = "anime"
+        MANGA = "manga"
+        CHARACTER = "character"
+        PERSON = "person"
+        OTHER = "other"
+        EPISODE = "episode"
 
     class IDType(XEnum):
         MAL = "mal"
@@ -63,29 +63,30 @@ class _BaseItem:
 
 class Anime(_BaseItem):
     class Type(XEnum):
-        TV = "TV"
-        MOVIE = "Movie"
-        OVA = "OVA"
-        ONA = "ONA"
-        MUSIC = "Music"
-        SPECIAL = "Special"
-        UNKNOWN = "Unknown"
+        TV = "tv"
+        MOVIE = "movie"
+        OVA = "ova"
+        ONA = "ona"
+        MUSIC = "music"
+        SPECIAL = "special"
+        UNKNOWN = "unknown"
 
     class Status(XEnum):
-        ONGOING = "Ongoing"
-        COMPLETED = "Completed"
-        CANCELLED = "Cancelled"
-        HIATUS = "Hiatus"
-        UNKNOWN = "Unknown"
+        ANNOUNCED = "announced"
+        ONGOING = "ongoing"
+        RELEASED = "released"
+        CANCELLED = "cancelled"
+        HIATUS = "hiatus"
+        UNKNOWN = "unknown"
 
     class AgeRating(XEnum):
-        G = "G"
-        PG = "PG"
-        PG_13 = "PG-13"
-        R = "R"
-        R_PLUS = "R+"
-        NC_17 = "NC-17"
-        NR = "NR"
+        G = "g"
+        PG = "pg"
+        PG_13 = "pg_13"
+        R = "r"
+        R_PLUS = "r_plus"
+        NC_17 = "nc_17"
+        NR = "nr"
         UNKNOWN = "unknown"
 
     class Episode(_BaseItem):
@@ -95,14 +96,7 @@ class Anime(_BaseItem):
         number: int
         episode_id: Dict[_BaseItem.IDType, str | int]
         title: Dict[_BaseItem.Language, List[str] | str]
-
-        class EpisodeStatus(XEnum):
-            RELEASED = "Released"
-            DELAYED = "Delayed"
-            ANNOUNCED = "Announced"
-            UNKNOWN = "Unknown"
-
-        status: EpisodeStatus
+        status: "Anime.Status"
 
         class Video:
             is_raw: bool
@@ -123,7 +117,7 @@ class Anime(_BaseItem):
         videos: List[Video]
 
         def __repr__(self):
-            return f'<Episode {self.number} ({self.status.value}{(", " + self.aired.strftime("%Y-%m-%d")) if self.aired else ""}) - "{self.title[:30] + "..." if len(self.title) > 30 else self.title}">'
+            return f'<Episode {self.number} ({self.status.value}{(", " + self.aired.strftime("%Y-%m-%d")) if "aired" in self.__dict__ else ""}) - "{(self.title[:30] + "..." if len(self.title) > 30 else self.title) if "title" in self.__dict__ else "Unknown"}">'
 
     class Rating:
         rating: float
