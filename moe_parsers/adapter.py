@@ -235,9 +235,7 @@ class _Client:
             kwargs["url"] = f"{self._my('base_url') or 'https://'}{kwargs['url']}"
         session: ClientSession = self._my("session") or ClientSession(
             headers=kwargs.get("headers", None),
-            connector=TCPConnector(ssl=False)
-            if self._my("proxy", None) or kwargs.get("proxy", None)
-            else None,
+            connector=TCPConnector(ssl=self._my("ssl", True), verify_ssl=self._my("ssl", True)),
         )
         if self._my("proxy") or kwargs.get("proxy", None):
             session._ssl = False

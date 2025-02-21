@@ -35,13 +35,17 @@ class ShikimoriParser(Parser):
         }
         anime.age_rating = Anime.AgeRating(data.get("rating", "unknown"))
         anime.title = {
-            _BaseItem.Language.RUSSIAN: [data.get("russian", None), data.get("licenseNameRu", None)],
-            _BaseItem.Language.ENGLISH: [data.get("english", None), data.get("name", None)],
-            _BaseItem.Language.JAPANESE: [data.get("japanese", None)],
+            _BaseItem.Language.RUSSIAN: [x for x in [data.get("russian", None), data.get("licenseNameRu", None)] if x is not None],
+            _BaseItem.Language.ENGLISH: [x for x in [data.get("english", None), data.get("name", None)] if x is not None],
+            _BaseItem.Language.JAPANESE: [x for x in [data.get("japanese", None)] if x is not None],
         }
         anime.type = Anime.Type(data.get("kind", "unknown"))
         anime.status = Anime.Status(data.get("status", "unknown"))
-        anime.episodes = [Anime.Episode(number=num + 1, status=Anime.Status("released" if num + 1 <= data.get("episodes_aired", 0) else "announced")) for num in range(data.get("episodes", 0))]
+        anime.episodes = [Anime.Episode(number=num + 1, status=Anime.Status("released" if num + 1 <= data.get("episodesAired", 0) else "announced")) for num in range(data.get("episodes", 0))]
+        anime.started = datetime.strptime(data.get("airedOn", {}).get("date"), "%Y-%m-%d") if "date" in data.get("airedOn", {}) else None
+        anime.released = datetime.strptime(data.get("releasedOn", {}).get("date"), "%Y-%m-%d") if "date" in data.get("releasedOn", {}) else None
+        anime.episode_duration = data.get("duration", 0)
+        
         return anime
 
     class SearchArguments(TypedDict, total=False): 

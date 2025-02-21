@@ -14,8 +14,22 @@ class XEnum(Enum):
             if not key.startswith("_")
         ]
 
+    def __str__(self):
+        return self.value
+
     def __repr__(self):
         return f'{self.__class__.__name__}("{self.value}")'
+
+    def __eq__(self, other):
+        """
+        Basically makes the enum comparing to string work; when compared not to the string compare using default enum behavior
+        """
+        if isinstance(other, str):
+            return self.value == other
+        return super().__eq__(other)
+
+    def __hash__(self):
+        return super().__hash__()
 
 
 class _BaseItem:
@@ -68,6 +82,7 @@ class Anime(_BaseItem):
         OVA = "ova"
         ONA = "ona"
         MUSIC = "music"
+        TV_SPECIAL = "tv_special"
         SPECIAL = "special"
         UNKNOWN = "unknown"
 
@@ -140,7 +155,7 @@ class Anime(_BaseItem):
     description: Dict[_BaseItem.Language, List[str] | str]
     announced: datetime
     started: datetime
-    completed: datetime
+    released: datetime
     characters: List["Character"]
     data: Dict
     client: _Client
