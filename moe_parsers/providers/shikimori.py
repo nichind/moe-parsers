@@ -30,23 +30,67 @@ class ShikimoriParser(Parser):
     def data2anime(cls, data) -> Anime:
         anime = Anime()
         anime.ids = {
-            _BaseItem.IDType.MAL: data["malId"],
-            _BaseItem.IDType.SHIKIMORI: data["id"],
+            _BaseItem.IDType.MAL: data.get("malId"),
+            _BaseItem.IDType.SHIKIMORI: data.get("id"),
         }
         anime.age_rating = Anime.AgeRating(data.get("rating", "unknown"))
         anime.title = {
-            _BaseItem.Language.RUSSIAN: [x for x in [data.get("russian", None), data.get("licenseNameRu", None)] if x is not None],
-            _BaseItem.Language.ENGLISH: [x for x in [data.get("english", None), data.get("name", None)] if x is not None],
-            _BaseItem.Language.JAPANESE: [x for x in [data.get("japanese", None)] if x is not None],
+            _BaseItem.Language.RUSSIAN: [data.get("russian", "")],
+            _BaseItem.Language.ENGLISH: [data.get("english", "")],
+            _BaseItem.Language.JAPANESE: [data.get("japanese", "")],
         }
         anime.type = Anime.Type(data.get("kind", "unknown"))
         anime.status = Anime.Status(data.get("status", "unknown"))
-        anime.episodes = [Anime.Episode(number=num + 1, status=Anime.Status("released" if num + 1 <= data.get("episodesAired", 0) else "announced")) for num in range(data.get("episodes", 0))]
-        anime.started = datetime.strptime(data.get("airedOn", {}).get("date"), "%Y-%m-%d") if "date" in data.get("airedOn", {}) else None
-        anime.released = datetime.strptime(data.get("releasedOn", {}).get("date"), "%Y-%m-%d") if "date" in data.get("releasedOn", {}) else None
         anime.episode_duration = data.get("duration", 0)
-        
+        anime.started = datetime.strptime(data.get("airedOn", {}).get("date", ""), "%Y-%m-%d") if data.get("airedOn", {}).get("date") else None
+        anime.released = datetime.strptime(data.get("releasedOn", {}).get("date", ""), "%Y-%m-%d") if data.get("releasedOn", {}).get("date") else None
+        anime.studios = [studio["name"] for studio in data.get("studios", [])]
+        anime.genres = {genre["kind"]: genre["name"] for genre in data.get("genres", [])}
+        anime.directors = [Person(ids={_BaseItem.IDType.SHIKIMORI: p["person"]["id"], _BaseItem.IDType.MAL: p["person"].get("malId")}, name={_BaseItem.Language.ENGLISH: [p["person"]["name"]]}) for p in data.get("personRoles", []) if "Director" in p.get("rolesEn", [])]
+        anime.producers = [Person(ids={_BaseItem.IDType.SHIKIMORI: p["person"]["id"], _BaseItem.IDType.MAL: p["person"].get("malId")}, name={_BaseItem.Language.ENGLISH: [p["person"]["name"]]}) for p in data.get("personRoles", []) if "Producer" in p.get("rolesEn", [])]
+        anime.actors = [Person(ids={_BaseItem.IDType.SHIKIMORI: p["person"]["id"], _BaseItem.IDType.MAL: p["person"].get("malId")}, name={_BaseItem.Language.ENGLISH: [p["person"]["name"]]}) for p in data.get("personRoles", []) if "Voice Actor" in p.get("rolesEn", [])]
+        anime.writers = [Person(ids={_BaseItem.IDType.SHIKIMORI: p["person"]["id"], _BaseItem.IDType.MAL: p["person"].get("malId")}, name={_BaseItem.Language.ENGLISH: [p["person"]["name"]]}) for p in data.get("personRoles", []) if "Script" in p.get("rolesEn", [])]
+        anime.composers = [Person(ids={_BaseItem.IDType.SHIKIMORI: p["person"]["id"], _BaseItem.IDType.MAL: p["person"].get("malId")}, name={_BaseItem.Language.ENGLISH: [p["person"]["name"]]}) for p in data.get("personRoles", []) if "Music" in p.get("rolesEn", [])]
+        anime.characters = [Character(ids={_BaseItem.IDType.SHIKIMORI: c["character"]["id"], _BaseItem.IDType.MAL: c["character"].get("malId")}, name={_BaseItem.Language.ENGLISH: [c["character"]["name"]]}, type=Character.Type(c["rolesEn"][0].lower())) for c in data.get("characterRoles", [])]
+        anime.screenshots = data.get("screenshots", [])
+        anime.related = data.get("related", [])
+        anime.videos = data.get("videos", [])
         return anime
+
+    @classmethod
+    def data2person(cls, data) -> Person:
+        person = Person()
+        person.ids = {
+            _BaseItem.IDType.MAL: data.get("malId"),
+            _BaseItem.IDType.SHIKIMORI: data.get("id"),
+        }
+        person.name = {
+            _BaseItem.Language.RUSSIAN: [data.get("russian", "")],
+            _BaseItem.Language.ENGLISH: [data.get("name", "")],
+            _BaseItem.Language.JAPANESE: [data.get("japanese", "")],
+        }
+        person.birthdate = datetime.strptime(data.get("birthOn", {}).get("date", ""), "%Y-%m-%d") if data.get("birthOn", {}).get("date") else None
+        person.passingdate = datetime.strptime(data.get("deceasedOn", {}).get("date", ""), "%Y-%m-%d") if data.get("deceasedOn", {}).get("date") else None
+        person.url = data.get("url", "")
+        return person
+
+    @classmethod
+    def data2character(cls, data) -> Character:
+        character = Character()
+        character.ids = {
+            _BaseItem.IDType.MAL: data.get("malId"),
+            _BaseItem.IDType.SHIKIMORI: data.get("id"),
+        }
+        character.name = {
+            _BaseItem.Language.RUSSIAN: [data.get("russian", "")],
+            _BaseItem.Language.ENGLISH: [data.get("name", "")],
+            _BaseItem.Language.JAPANESE: [data.get("japanese", "")],
+        }
+        character.description = data.get("description", "")
+        character.url = data.get("url", "")
+        return character
+
+
 
     class SearchArguments(TypedDict, total=False): 
         searchType: (
@@ -256,7 +300,6 @@ class ShikimoriParser(Parser):
                         ),
                     },
                 )
-                print(response.json.get("data"))
                 for result in response.json.get("data").get(path):
                     for key, value in {
                         "people": Person,

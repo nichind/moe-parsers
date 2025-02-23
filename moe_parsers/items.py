@@ -173,6 +173,9 @@ class Anime(_BaseItem):
     designers: List["Person"]
     age_rating: AgeRating
     episode_duration: int
+    related: List[Dict[str, _BaseItem]]
+    videos: List[Dict[str, str]]
+    screenshots: List[Dict[str, str]]
 
     @property
     def total_duration(self) -> int | None:
@@ -230,7 +233,16 @@ class Manga(_BaseItem):
 
 
 class Character(_BaseItem):
+    class Type(XEnum):
+        MAIN = "main"
+        SUPPORTING = "supporting"
+    
     item_type = _BaseItem.ItemType.CHARACTER
+    type: Type
+    ids: Dict[_BaseItem.IDType, str | int]
+    name: Dict[_BaseItem.Language, List[str] | str]
+    description: Dict[_BaseItem.Language, List[str] | str]
+    url: str
 
 
 class Person(_BaseItem):
