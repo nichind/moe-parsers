@@ -1,5 +1,5 @@
 import pytest
-from ..providers.shikimori import ShikimoriParser, Anime
+from moe_parsers.providers.shikimori import ShikimoriParser, Anime
 
 
 @pytest.mark.asyncio

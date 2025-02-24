@@ -1,5 +1,5 @@
 import pytest
-from ..core.adapter import Client
+from moe_parsers.core.adapter import Client
 
 
 @pytest.mark.asyncio
