@@ -137,6 +137,7 @@ class _ClientParams(TypedDict, total=False):
     max_retries: int
     base_url: str
     proxies: "ProxySwithcher" | List[Proxy | str]
+    debug: bool
 
 
 class RequestArgs(TypedDict, total=False):
@@ -223,7 +224,8 @@ class _Client:
             await self._my("session").close()
 
     async def request(self, *args, **kwargs: Unpack[RequestArgs]) -> RequestResponse:
-        print(kwargs.items())
+        if self._my("debug", False):
+            print(kwargs.items())
         if kwargs.get("retries", 0) > self._my("max_retries", 5):
             raise Exception("Too many retries")
         if not kwargs.get("url", None) and args and isinstance(args[0], str):
@@ -235,7 +237,9 @@ class _Client:
             kwargs["url"] = f"{self._my('base_url') or 'https://'}{kwargs['url']}"
         session: ClientSession = self._my("session") or ClientSession(
             headers=kwargs.get("headers", None),
-            connector=TCPConnector(ssl=self._my("ssl", True), verify_ssl=self._my("ssl", True)),
+            connector=TCPConnector(
+                ssl=self._my("ssl", True), verify_ssl=self._my("ssl", True)
+            ),
         )
         if self._my("proxy") or kwargs.get("proxy", None):
             session._ssl = False
@@ -268,6 +272,8 @@ class _Client:
                 headers=response.headers,
                 _response=response,
             )
+        if self._my("debug", False):
+            print(response)
         if self.switcher.get_by_url(proxy):
             self.switcher.get_by_url(proxy).latency = int(
                 (

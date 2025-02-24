@@ -6,6 +6,9 @@ from cutlet import Cutlet
 from difflib import SequenceMatcher
 
 
+katsu = Cutlet()
+
+
 class ShikimoriParser(Parser):
     def __init__(self, **kwargs: Unpack[Parser.ParserParams]):
         self.language = Parser.Language.RU
@@ -20,15 +23,16 @@ class ShikimoriParser(Parser):
         self.client.base_url = "https://shikimori.one/"
 
     graphql_query = {
-        "mangas": """{\n  mangas({params}) {\n    id\n    malId\n    name\n    russian\n    licenseNameRu\n    english\n    japanese\n    synonyms\n    kind\n    score\n    status\n    volumes\n    chapters\n    airedOn {\n      year\n      month\n      day\n      date\n    }\n    releasedOn {\n      year\n      month\n      day\n      date\n    }\n    url\n    poster {\n      id\n      originalUrl\n      mainUrl\n    }\n    licensors\n    createdAt\n    updatedAt\n    isCensored\n    genres {\n      id\n      name\n      russian\n      kind\n    }\n    publishers {\n      id\n      name\n    }\n    externalLinks {\n      id\n      kind\n      url\n      createdAt\n      updatedAt\n    }\n    personRoles {\n      id\n      rolesRu\n      rolesEn\n      person {\n        id\n        name\n        poster {\n          id\n        }\n      }\n    }\n    characterRoles {\n      id\n      rolesRu\n      rolesEn\n      character {\n        id\n        name\n        poster {\n          id\n        }\n      }\n    }\n    related {\n      id\n      anime {\n        id\n        name\n      }\n      manga {\n        id\n        name\n      }\n      relationKind\n      relationText\n    }\n    scoresStats {\n      score\n      count\n    }\n    statusesStats {\n      status\n      count\n    }\n    description\n    descriptionHtml\n    descriptionSource\n  }\n}\n""",
-        "animes": "{\n  animes({params}) {\n    id\n    malId\n    name\n    russian\n    licenseNameRu\n    english\n    japanese\n    synonyms\n    kind\n    rating\n    score\n    status\n    episodes\n    episodesAired\n    duration\n    airedOn {\n      year\n      month\n      day\n      date\n    }\n    releasedOn {\n      year\n      month\n      day\n      date\n    }\n    url\n    season\n    poster {\n      id\n      originalUrl\n      mainUrl\n    }\n    fansubbers\n    fandubbers\n    licensors\n    createdAt\n    updatedAt\n    nextEpisodeAt\n    isCensored\n    genres {\n      id\n      name\n      russian\n      kind\n    }\n    studios {\n      id\n      name\n      imageUrl\n    }\n    externalLinks {\n      id\n      kind\n      url\n      createdAt\n      updatedAt\n    }\n    personRoles {\n      id\n      rolesRu\n      rolesEn\n      person {\n        id\n        name\n        poster {\n          id\n        }\n      }\n    }\n    characterRoles {\n      id\n      rolesRu\n      rolesEn\n      character {\n        id\n        name\n        poster {\n          id\n        }\n      }\n    }\n    related {\n      id\n      anime {\n        id\n        name\n      }\n      manga {\n        id\n        name\n      }\n      relationKind\n      relationText\n    }\n    videos {\n      id\n      url\n      name\n      kind\n      playerUrl\n      imageUrl\n    }\n    screenshots {\n      id\n      originalUrl\n      x166Url\n      x332Url\n    }\n    scoresStats {\n      score\n      count\n    }\n    statusesStats {\n      status\n      count\n    }\n    description\n    descriptionHtml\n    descriptionSource\n  }\n}\n",
-        "character": "{\n  characters({params}) {\n    id\n    malId\n    name\n    russian\n    japanese\n    synonyms\n    url\n    createdAt\n    updatedAt\n    isAnime\n    isManga\n    isRanobe\n    poster {\n      id\n      originalUrl\n      mainUrl\n    }\n    description\n    descriptionHtml\n    descriptionSource\n  }\n}\n",
-        "person": "{\n  people({params}) {\n    id\n    malId\n    name\n    russian\n    japanese\n    synonyms\n    url\n    isSeyu\n    isMangaka\n    isProducer\n    website\n    createdAt\n    updatedAt\n    birthOn {\n      year\n      month\n      day\n      date\n    }\n    deceasedOn {\n      year\n      month\n      day\n      date\n    }\n    poster {\n      id\n      originalUrl\n      mainUrl\n    }\n  }\n}\n",
+        "mangas": "{ mangas({params}) { id malId name russian licenseNameRu english japanese synonyms kind score status volumes chapters airedOn { year month day date } releasedOn { year month day date } url poster { id originalUrl mainUrl } licensors createdAt updatedAt isCensored genres { id name russian kind } publishers { id name } externalLinks { id kind url createdAt updatedAt } personRoles { id rolesRu rolesEn person { id malId name russian japanese synonyms url isSeyu isMangaka isProducer website createdAt updatedAt birthOn { year month day date } deceasedOn { year month day date } poster { id originalUrl mainUrl previewUrl } } } characterRoles { id rolesRu rolesEn character { id malId name russian japanese synonyms url createdAt updatedAt isAnime isManga isRanobe poster { id originalUrl mainUrl previewUrl } description descriptionHtml descriptionSource } } related { id anime { id name } manga { id name } relationKind relationText } scoresStats { score count } statusesStats { status count } description descriptionHtml descriptionSource } }",
+        "animes": "{ animes({params}) { id malId name russian licenseNameRu english japanese synonyms kind rating score status episodes episodesAired duration airedOn { date } releasedOn { date } url season poster { id originalUrl mainUrl } fansubbers fandubbers licensors nextEpisodeAt isCensored genres { id name russian kind } studios { id name imageUrl } externalLinks { id kind url createdAt updatedAt } personRoles { id rolesRu rolesEn person { id malId name russian japanese synonyms url isSeyu isMangaka isProducer website birthOn { date } deceasedOn { date } poster { id originalUrl mainUrl previewUrl } } } characterRoles { id rolesRu rolesEn character { id malId name russian japanese synonyms url isAnime isManga isRanobe poster { id originalUrl mainUrl previewUrl } description descriptionHtml descriptionSource } } related { id anime { id name } manga { id name } relationKind relationText } videos { id url name kind playerUrl imageUrl } screenshots { id originalUrl x166Url } scoresStats { score count } statusesStats { status count } description descriptionSource } }",
+        "characters": "{ characters({params}) { id malId name russian japanese synonyms url createdAt updatedAt isAnime isManga isRanobe poster { id originalUrl mainUrl } description descriptionHtml descriptionSource } }",
+        "people": "{ people({params}) { id malId name russian japanese synonyms url isSeyu isMangaka isProducer website createdAt updatedAt birthOn { year month day date } deceasedOn { year month day date } poster { id originalUrl mainUrl } } }"
     }
-
+    
     @classmethod
     def data2anime(cls, data) -> Anime:
         anime = Anime()
+        anime.data = data
         anime.ids = {
             _BaseItem.IDType.MAL: data.get("malId"),
             _BaseItem.IDType.SHIKIMORI: data.get("id"),
@@ -38,7 +42,11 @@ class ShikimoriParser(Parser):
             _BaseItem.Language.RUSSIAN: [data.get("russian", "")],
             _BaseItem.Language.ENGLISH: [data.get("english", "")],
             _BaseItem.Language.JAPANESE: [data.get("japanese", "")],
+            _BaseItem.Language.ROMAJI: [],
         }
+        for title in anime.title[_BaseItem.Language.JAPANESE]:
+            anime.title[_BaseItem.Language.ROMAJI].append(katsu.romaji(title).title())
+        anime.thumbnail = data.get("poster", {}).get("mainUrl")
         anime.type = Anime.Type(data.get("kind", "unknown"))
         anime.status = Anime.Status(data.get("status", "unknown"))
         anime.episode_duration = data.get("duration", 0)
@@ -46,16 +54,60 @@ class ShikimoriParser(Parser):
         anime.released = datetime.strptime(data.get("releasedOn", {}).get("date", ""), "%Y-%m-%d") if data.get("releasedOn", {}).get("date") else None
         anime.studios = [studio["name"] for studio in data.get("studios", [])]
         anime.genres = {genre["kind"]: genre["name"] for genre in data.get("genres", [])}
-        anime.directors = [Person(ids={_BaseItem.IDType.SHIKIMORI: p["person"]["id"], _BaseItem.IDType.MAL: p["person"].get("malId")}, name={_BaseItem.Language.ENGLISH: [p["person"]["name"]]}) for p in data.get("personRoles", []) if "Director" in p.get("rolesEn", [])]
-        anime.producers = [Person(ids={_BaseItem.IDType.SHIKIMORI: p["person"]["id"], _BaseItem.IDType.MAL: p["person"].get("malId")}, name={_BaseItem.Language.ENGLISH: [p["person"]["name"]]}) for p in data.get("personRoles", []) if "Producer" in p.get("rolesEn", [])]
-        anime.actors = [Person(ids={_BaseItem.IDType.SHIKIMORI: p["person"]["id"], _BaseItem.IDType.MAL: p["person"].get("malId")}, name={_BaseItem.Language.ENGLISH: [p["person"]["name"]]}) for p in data.get("personRoles", []) if "Voice Actor" in p.get("rolesEn", [])]
-        anime.writers = [Person(ids={_BaseItem.IDType.SHIKIMORI: p["person"]["id"], _BaseItem.IDType.MAL: p["person"].get("malId")}, name={_BaseItem.Language.ENGLISH: [p["person"]["name"]]}) for p in data.get("personRoles", []) if "Script" in p.get("rolesEn", [])]
-        anime.composers = [Person(ids={_BaseItem.IDType.SHIKIMORI: p["person"]["id"], _BaseItem.IDType.MAL: p["person"].get("malId")}, name={_BaseItem.Language.ENGLISH: [p["person"]["name"]]}) for p in data.get("personRoles", []) if "Music" in p.get("rolesEn", [])]
-        anime.characters = [Character(ids={_BaseItem.IDType.SHIKIMORI: c["character"]["id"], _BaseItem.IDType.MAL: c["character"].get("malId")}, name={_BaseItem.Language.ENGLISH: [c["character"]["name"]]}, type=Character.Type(c["rolesEn"][0].lower())) for c in data.get("characterRoles", [])]
+        anime.directors = [Person(ids={_BaseItem.IDType.SHIKIMORI: p["person"]["id"]}, name={_BaseItem.Language.ENGLISH: [p["person"]["name"]]}) for p in data.get("personRoles", []) if "Director" in p.get("rolesEn", [])]
+        anime.producers = [Person(ids={_BaseItem.IDType.SHIKIMORI: p["person"]["id"]}, name={_BaseItem.Language.ENGLISH: [p["person"]["name"]]}) for p in data.get("personRoles", []) if "Producer" in p.get("rolesEn", [])]
+        anime.actors = [Person(ids={_BaseItem.IDType.SHIKIMORI: p["person"]["id"]}, name={_BaseItem.Language.ENGLISH: [p["person"]["name"]]}) for p in data.get("personRoles", []) if "Voice Actor" in p.get("rolesEn", [])]
+        anime.writers = [Person(ids={_BaseItem.IDType.SHIKIMORI: p["person"]["id"]}, name={_BaseItem.Language.ENGLISH: [p["person"]["name"]]}) for p in data.get("personRoles", []) if "Script" in p.get("rolesEn", [])]
+        anime.composers = [Person(ids={_BaseItem.IDType.SHIKIMORI: p["person"]["id"]}, name={_BaseItem.Language.ENGLISH: [p["person"]["name"]]}) for p in data.get("personRoles", []) if "Music" in p.get("rolesEn", [])]
+        anime.characters =  []
+        for character in data.get("characterRoles", []):
+            char = cls.data2character(character.get("character", {}))
+            char.type = Character.Type(character.get("rolesEn", ["unknown"])[0].lower())
+            anime.characters += [char]
         anime.screenshots = data.get("screenshots", [])
         anime.related = data.get("related", [])
         anime.videos = data.get("videos", [])
+        anime.description = {_BaseItem.Language.RUSSIAN: data.get("description", ""),}
+        anime.external_links = data.get("externalLinks", [])
         return anime
+
+    @classmethod
+    def data2manga(cls, data) -> Manga:
+        manga = Manga()
+        manga.data = data
+        manga.ids = {
+            _BaseItem.IDType.MAL: data.get("malId"),
+            _BaseItem.IDType.SHIKIMORI: data.get("id"),
+        }
+        manga.title = {
+            _BaseItem.Language.RUSSIAN: [data.get("russian", "")],
+            _BaseItem.Language.ENGLISH: [data.get("english", "")],
+            _BaseItem.Language.JAPANESE: [data.get("japanese", "")],
+            _BaseItem.Language.ROMAJI: [],
+        }
+        for title in manga.title[_BaseItem.Language.JAPANESE]:
+            rom = katsu.romaji(title).title()
+            if rom in manga.title[_BaseItem.Language.ENGLISH]:
+                manga.title[_BaseItem.Language.ENGLISH].remove(rom)
+            if rom and rom != "?" * len(rom):
+                manga.title[_BaseItem.Language.ROMAJI].append(rom)
+        manga.thumbnail = data.get("poster", {}).get("mainUrl")
+        manga.type = Manga.Type(data.get("kind", "unknown"))
+        manga.status = Manga.Status(data.get("status", "unknown"))
+        manga.volumes = data.get("volumes", 0)
+        manga.chapters = data.get("chapters", 0)
+        manga.started = datetime.strptime(data.get("airedOn", {}).get("date", ""), "%Y-%m-%d") if data.get("airedOn", {}).get("date") else None
+        manga.released = datetime.strptime(data.get("releasedOn", {}).get("date", ""), "%Y-%m-%d") if data.get("releasedOn", {}).get("date") else None
+        manga.studios = [studio["name"] for studio in data.get("studios", [])]
+        manga.genres = {genre["kind"]: genre["name"] for genre in data.get("genres", [])}
+        manga.characters =  []
+        for character in data.get("characterRoles", []):
+            char = cls.data2character(character.get("character", {}))
+            char.type = Character.Type(character.get("rolesEn", ["unknown"])[0].lower())
+            manga.characters += [char]
+        manga.description = {_BaseItem.Language.RUSSIAN: data.get("description", ""),}
+        manga.external_links = data.get("externalLinks", [])
+        return manga
 
     @classmethod
     def data2person(cls, data) -> Person:
@@ -69,14 +121,18 @@ class ShikimoriParser(Parser):
             _BaseItem.Language.ENGLISH: [data.get("name", "")],
             _BaseItem.Language.JAPANESE: [data.get("japanese", "")],
         }
+        person.thumbnail = data.get("poster", {}).get("mainUrl") if data.get("poster") else None
+        person.image = data.get("poster", {}).get("mainUrl") if data.get("poster") else None
         person.birthdate = datetime.strptime(data.get("birthOn", {}).get("date", ""), "%Y-%m-%d") if data.get("birthOn", {}).get("date") else None
         person.passingdate = datetime.strptime(data.get("deceasedOn", {}).get("date", ""), "%Y-%m-%d") if data.get("deceasedOn", {}).get("date") else None
         person.url = data.get("url", "")
+        person.description = {_BaseItem.Language.RUSSIAN: data.get("description", ""),}
         return person
 
     @classmethod
     def data2character(cls, data) -> Character:
         character = Character()
+        character.data = data
         character.ids = {
             _BaseItem.IDType.MAL: data.get("malId"),
             _BaseItem.IDType.SHIKIMORI: data.get("id"),
@@ -86,16 +142,16 @@ class ShikimoriParser(Parser):
             _BaseItem.Language.ENGLISH: [data.get("name", "")],
             _BaseItem.Language.JAPANESE: [data.get("japanese", "")],
         }
-        character.description = data.get("description", "")
+        character.thumbnail = data.get("poster", {}).get("previewUrl", None) if data.get("poster") else None
+        character.description = {
+            _BaseItem.Language.RUSSIAN: data.get("description", ""),}
         character.url = data.get("url", "")
         return character
 
-
-
     class SearchArguments(TypedDict, total=False): 
         searchType: (
-            List[Literal["animes", "mangas", "character", "person"]]
-            | Literal["autocomplete", "all", "animes", "mangas", "character", "person"]
+            List[Literal["animes", "mangas", "characters", "people"]]
+            | Literal["autocomplete", "all", "animes", "mangas", "characters", "people"]
         )
         startPage: int
         endPage: int
@@ -267,7 +323,7 @@ class ShikimoriParser(Parser):
 
     async def search_generator(
         self, **kwargs: Unpack[SearchArguments]
-    ) -> AsyncGenerator[_BaseItem, None]:
+    ) -> AsyncGenerator[Anime | Manga | Character | Person, None]:
         """A generator which yields search results from Shikimori."""
         start_page = kwargs.get("startPage", 1)
         end_page = kwargs.get("endPage", start_page)
@@ -277,7 +333,7 @@ class ShikimoriParser(Parser):
         if not isinstance(search_types, list):
             search_types = [search_types]
         if search_types == "all":
-            search_types = ["animes", "mangas", "person", "character"]
+            search_types = ["animes", "mangas", "people", "characters"]
         if "searchType" in kwargs:
             del kwargs["searchType"]
         for page in range(start_page, end_page + 1):
@@ -301,24 +357,17 @@ class ShikimoriParser(Parser):
                     },
                 )
                 for result in response.json.get("data").get(path):
-                    for key, value in {
-                        "people": Person,
-                        "character": Character,
-                        "anime": Anime,
-                        "manga": Manga,
-                    }.items():
-                        ...
-                    yield self.data2anime(result)
-
-    async def search(self, **kwargs: Unpack[SearchArguments]) -> List[_BaseItem]:
+                    yield {"animes": self.data2anime, "mangas": self.data2manga, "characters": self.data2character, "people": self.data2person}[path](result)
+                   
+    async def search(self, **kwargs: Unpack[SearchArguments]) -> List[Anime | Manga | Character | Person]:
         return [item async for item in self.search_generator(**kwargs)]
 
     async def get_info(
         self,
-        item_type: Literal["anime", "manga", "character", "person"],
+        item_type: Literal["anime", "manga", "characters", "people"],
         item_id: int,
         item: _BaseItem | Anime | Manga | Character | Person = None,
-    ) -> _BaseItem:
+    ) -> Anime | Manga | Character | Person:
         if item_type == "person":
             item_type = "people"
         elif item_type == "character":

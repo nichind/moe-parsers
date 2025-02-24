@@ -176,6 +176,7 @@ class Anime(_BaseItem):
     related: List[Dict[str, _BaseItem]]
     videos: List[Dict[str, str]]
     screenshots: List[Dict[str, str]]
+    external_links = List[Dict[str, str]]
 
     @property
     def total_duration(self) -> int | None:
@@ -216,6 +217,7 @@ class Anime(_BaseItem):
 
 class Manga(_BaseItem):
     class Type(XEnum):
+        MANGA = "manga"
         MANHWA = "manhwa"
         MANHUA = "manhua"
         LIGHT_NOVEL = "light novel"
@@ -224,19 +226,24 @@ class Manga(_BaseItem):
         DOUJIN = "doujin"
         UNKNOWN = "unknown"
 
+    Status = Anime.Status
+
     item_type = _BaseItem.ItemType.MANGA
     type: Type
     ids: Dict[_BaseItem.IDType, str | int]
     status: Anime.Status
     volumes: int
     chapters: int
+    characters: List["Character"]
+    external_links = List[Dict[str, str]]
+    data: Dict
 
 
 class Character(_BaseItem):
     class Type(XEnum):
         MAIN = "main"
         SUPPORTING = "supporting"
-    
+
     item_type = _BaseItem.ItemType.CHARACTER
     type: Type
     ids: Dict[_BaseItem.IDType, str | int]
