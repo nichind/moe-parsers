@@ -215,9 +215,9 @@ class Manga(_BaseItem):
         MANGA = "manga"
         MANHWA = "manhwa"
         MANHUA = "manhua"
-        LIGHT_NOVEL = "light novel"
+        LIGHT_NOVEL = "light_novel"
         NOVEL = "novel"
-        ONE_SHOT = "one-shot"
+        ONE_SHOT = "one_shot"
         DOUJIN = "doujin"
         UNKNOWN = "unknown"
 
