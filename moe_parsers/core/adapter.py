@@ -211,8 +211,7 @@ class _Client:
         for d in dicts:
             self._my("headers", {}).update(**d)
         sorted_headers = {
-            k.replace("_", "-").title(): v
-            for k, v in sorted(headers.items(), key=lambda x: x[0].lower())
+            k.replace("_", "-").title(): v for k, v in sorted(headers.items(), key=lambda x: x[0].lower())
         }
         self._my("headers", {}).update(sorted_headers)
 
@@ -237,17 +236,11 @@ class _Client:
             kwargs["url"] = f"{self._my('base_url') or 'https://'}{kwargs['url']}"
         session: ClientSession = self._my("session") or ClientSession(
             headers=kwargs.get("headers", None),
-            connector=TCPConnector(
-                ssl=self._my("ssl", True), verify_ssl=self._my("ssl", True)
-            ),
+            connector=TCPConnector(ssl=self._my("ssl", True), verify_ssl=self._my("ssl", True)),
         )
         if self._my("proxy") or kwargs.get("proxy", None):
             session._ssl = False
-        if (
-            not kwargs.get("use_switcher", True)
-            or len(self.switcher.proxies) == 0
-            or "proxy" in kwargs
-        ):
+        if not kwargs.get("use_switcher", True) or len(self.switcher.proxies) == 0 or "proxy" in kwargs:
             proxy = kwargs.get("proxy", None) or self._my("proxy", None)
         else:
             proxy = self.switcher.pick(ignore=kwargs.get("ignore_proxies", []))
@@ -276,20 +269,14 @@ class _Client:
             print(response)
         if self.switcher.get_by_url(proxy):
             self.switcher.get_by_url(proxy).latency = int(
-                (
-                    datetime.now() - self.switcher.get_by_url(proxy).last_used
-                ).total_seconds()
-                * 1000
+                (datetime.now() - self.switcher.get_by_url(proxy).last_used).total_seconds() * 1000
             )
         if kwargs.get("close", True):
             await session.close()
         if (
             len(str(response.status)) == 3
             and str(response.status).startswith("5")
-            and (
-                response.status
-                not in kwargs.get("ingore_codes", self._my("ingore_codes", []))
-            )
+            and (response.status not in kwargs.get("ingore_codes", self._my("ingore_codes", [])))
         ):
             await sleep(0.2)
             kwargs.update({"retries": kwargs.get("retries", 0) + 1})
@@ -309,9 +296,7 @@ class _Client:
                 ignored.append(self.switcher.get_by_url(proxy))
                 kwargs.update({"ignore_proxies": ignored})
             return await self.request(*args, **kwargs)
-        if "set-cookie" in response.headers.keys() and not kwargs.get(
-            "ignore_set_cookie", False
-        ):
+        if "set-cookie" in response.headers.keys() and not kwargs.get("ignore_set_cookie", False):
             self.replace_headers(cookie=response.headers.get("set-cookie"))
         return response
 

@@ -26,3 +26,7 @@ classifiers = [
 
 [project.urls]
 Homepage = "https://github.com/nichind/moe-parsers"
+
+
+[tool.ruff]
+line-length = 120

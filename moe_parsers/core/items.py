@@ -8,11 +8,7 @@ from datetime import datetime
 class XEnum(Enum):
     @classmethod
     def values(cls) -> List:
-        return [
-            value.value
-            for key, value in cls.__dict__.items()
-            if not key.startswith("_")
-        ]
+        return [value.value for key, value in cls.__dict__.items() if not key.startswith("_")]
 
     def __str__(self):
         return self.value
@@ -121,9 +117,7 @@ class Anime(_BaseItem):
             translation_name: str
             translation_language: _BaseItem.Language | str
             url: str
-            quality: Literal[
-                "144", "240", "360", "480", "720", "1080", "1440", "2160", "unknown"
-            ]
+            quality: Literal["144", "240", "360", "480", "720", "1080", "1440", "2160", "unknown"]
 
             class Stream:
                 data: str
@@ -187,11 +181,7 @@ class Anime(_BaseItem):
     def released_duration(self) -> int | None:
         if self.total_duration:
             return self.episode_duration * len(
-                [
-                    episode
-                    for episode in self.episodes
-                    if episode.status == self.Episode.EpisodeStatus.RELEASED
-                ]
+                [episode for episode in self.episodes if episode.status == self.Episode.EpisodeStatus.RELEASED]
             )
 
     def get_id(
@@ -274,6 +264,4 @@ class Person(_BaseItem):
     name: Dict[_BaseItem.Language, List[str] | str]
     birthdate: datetime
     passingdate: datetime
-    cast_in: List[
-        Anime | Manga | Dict[_BaseItem.ItemType, Dict[_BaseItem.IDType, str | int]]
-    ]
+    cast_in: List[Anime | Manga | Dict[_BaseItem.ItemType, Dict[_BaseItem.IDType, str | int]]]

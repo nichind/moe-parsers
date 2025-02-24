@@ -56,9 +56,7 @@ class KodikParser(Parser):
         else:
             search_params["title"] = query
 
-        response = await self.client.post(
-            "https://kodikapi.com/search", data=search_params
-        )
+        response = await self.client.post("https://kodikapi.com/search", data=search_params)
         response = response.json
         print(response)
         if not response["total"]:
@@ -91,9 +89,7 @@ class KodikParser(Parser):
                         "worldart_link": result.get("worldart_link"),
                         "link": result.get("link"),
                         "all_status": result.get("all_status"),
-                        "description": result.get("material_data", {}).get(
-                            "description", None
-                        ),
+                        "description": result.get("material_data", {}).get("description", None),
                         "other_titles_en": result.get("other_titles_en", []),
                         "other_titles_jp": result.get("other_titles_jp", []),
                         "episode_count": info.get("episode_count", 0),
@@ -114,8 +110,6 @@ class KodikParser(Parser):
         with_details: bool = False,
     ) -> List[_BaseItem]:
         results = []
-        async for result in self.chunk_search(
-            query, limit, id_type, strict, with_details
-        ):
+        async for result in self.chunk_search(query, limit, id_type, strict, with_details):
             results.append(result)
         return results

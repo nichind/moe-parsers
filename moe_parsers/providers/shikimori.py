@@ -53,9 +53,7 @@ class ShikimoriParser(Parser):
             anime.title[_BaseItem.Language.ROMAJI].append(katsu.romaji(title).title())
         anime.thumbnail = data.get("poster", {}).get("mainUrl")
         anime.type = Anime.Type(data.get("kind", "unknown"))
-        anime.status = Anime.Status(
-            data.get("status", "unknown").replace("anons", "announced")
-        )
+        anime.status = Anime.Status(data.get("status", "unknown").replace("anons", "announced"))
         anime.episode_duration = data.get("duration", 0)
         anime.started = (
             datetime.strptime(data.get("airedOn", {}).get("date", ""), "%Y-%m-%d")
@@ -68,9 +66,7 @@ class ShikimoriParser(Parser):
             else None
         )
         anime.studios = [studio["name"] for studio in data.get("studios", [])]
-        anime.genres = {
-            genre["kind"]: genre["name"] for genre in data.get("genres", [])
-        }
+        anime.genres = {genre["kind"]: genre["name"] for genre in data.get("genres", [])}
         anime.directors = [
             Person(
                 ids={_BaseItem.IDType.SHIKIMORI: p["person"]["id"]},
@@ -144,9 +140,7 @@ class ShikimoriParser(Parser):
             _BaseItem.Language.JAPANESE: [data.get("japanese", "")],
             _BaseItem.Language.ROMAJI: [],
         }
-        manga.status = Anime.Status(
-            data.get("status", "unknown").replace("anons", "announced")
-        )
+        manga.status = Anime.Status(data.get("status", "unknown").replace("anons", "announced"))
         for title in manga.title[_BaseItem.Language.JAPANESE]:
             rom = katsu.romaji(title).title()
             if rom in manga.title[_BaseItem.Language.ENGLISH]:
@@ -169,9 +163,7 @@ class ShikimoriParser(Parser):
             else None
         )
         manga.studios = [studio["name"] for studio in data.get("studios", [])]
-        manga.genres = {
-            genre["kind"]: genre["name"] for genre in data.get("genres", [])
-        }
+        manga.genres = {genre["kind"]: genre["name"] for genre in data.get("genres", [])}
         manga.characters = []
         for character in data.get("characterRoles", []):
             char = cls.data2character(character.get("character", {}))
@@ -195,12 +187,8 @@ class ShikimoriParser(Parser):
             _BaseItem.Language.ENGLISH: [data.get("name", "")],
             _BaseItem.Language.JAPANESE: [data.get("japanese", "")],
         }
-        person.thumbnail = (
-            data.get("poster", {}).get("mainUrl") if data.get("poster") else None
-        )
-        person.image = (
-            data.get("poster", {}).get("mainUrl") if data.get("poster") else None
-        )
+        person.thumbnail = data.get("poster", {}).get("mainUrl") if data.get("poster") else None
+        person.image = data.get("poster", {}).get("mainUrl") if data.get("poster") else None
         person.birthdate = (
             datetime.strptime(data.get("birthOn", {}).get("date", ""), "%Y-%m-%d")
             if data.get("birthOn", {}).get("date")
@@ -230,11 +218,7 @@ class ShikimoriParser(Parser):
             _BaseItem.Language.ENGLISH: [data.get("name", "")],
             _BaseItem.Language.JAPANESE: [data.get("japanese", "")],
         }
-        character.thumbnail = (
-            data.get("poster", {}).get("previewUrl", None)
-            if data.get("poster")
-            else None
-        )
+        character.thumbnail = data.get("poster", {}).get("previewUrl", None) if data.get("poster") else None
         character.description = {
             _BaseItem.Language.RUSSIAN: data.get("description", ""),
         }
@@ -310,14 +294,7 @@ class ShikimoriParser(Parser):
             ]
             | str
         )
-        status: (
-            List[
-                Literal[
-                    "anons", "ongoing", "released", "!anons", "!ongoing", "!released"
-                ]
-            ]
-            | str
-        )
+        status: List[Literal["anons", "ongoing", "released", "!anons", "!ongoing", "!released"]] | str
         season: List[str] | str
         score: int
         duration: List[Literal["S", "D", "F", "!S", "!D", "!F"]] | str
@@ -459,13 +436,9 @@ class ShikimoriParser(Parser):
                             "people": self.data2person,
                         }[result_type](result)
 
-    async def search(
-        self, **kwargs: Unpack[SearchArguments]
-    ) -> List[Anime | Manga | Character | Person]:
+    async def search(self, **kwargs: Unpack[SearchArguments]) -> List[Anime | Manga | Character | Person]:
         results = [item async for item in self.search_generator(**kwargs)]
-        if kwargs.get("searchType", "animes") == "autocomplete" and kwargs.get(
-            "search", None
-        ):
+        if kwargs.get("searchType", "animes") == "autocomplete" and kwargs.get("search", None):
             if results:
                 search_query = kwargs.get("search", None)
                 if search_query:
@@ -486,23 +459,31 @@ class ShikimoriParser(Parser):
 
     async def get_info_generator(
         self,
-        item_type: Literal["animes", "mangas", "characters", "people"] | List[Literal["animes", "mangas", "characters", "people"]],
+        item_type: Literal["animes", "mangas", "characters", "people"]
+        | List[Literal["animes", "mangas", "characters", "people"]],
         item_id: int | str,
-    ) -> AsyncGenerator[Anime | Manga | Character | Person | List[Anime | Manga | Character | Person], None]:
-        async for result in self.search_generator(ids=item_id, searchType=item_type, limit=str(item_id).count(",") if str(item_id).count(",") > 0 else 1):
+    ) -> AsyncGenerator[
+        Anime | Manga | Character | Person | List[Anime | Manga | Character | Person],
+        None,
+    ]:
+        async for result in self.search_generator(
+            ids=item_id,
+            searchType=item_type,
+            limit=str(item_id).count(",") if str(item_id).count(",") > 0 else 1,
+        ):
             yield result
-            
+
     async def get_info(
-        self, 
-        item_type: Literal["animes", "mangas", "characters", "people"] | List[Literal["animes", "mangas", "characters", "people"]],
+        self,
+        item_type: Literal["animes", "mangas", "characters", "people"]
+        | List[Literal["animes", "mangas", "characters", "people"]],
         item_id: int | str,
-        item: Anime | Manga | Character | Person = None
+        item: Anime | Manga | Character | Person = None,
     ) -> List[Anime | Manga | Character | Person] | Anime | Manga | Character | Person:
         results = []
         async for result in self.get_info_generator(item_type, item_id):
             results += [result]
         if len(results) == 1:
             if item and isinstance(item, type(results[0])):
-                item.__dict__ == results[0].__dict__ 
+                item.__dict__ == results[0].__dict__
         return results[0] if len(results) == 1 else results
-            

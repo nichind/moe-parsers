@@ -52,12 +52,7 @@ class AnimegoParser(Parser):
     @classmethod
     def string2datetime(cls, string, format="%d %m %Y") -> datetime:
         return datetime.strptime(
-            " ".join(
-                [
-                    x if x not in cls.replace_month else cls.replace_month[x]
-                    for x in string.split()
-                ]
-            ),
+            " ".join([x if x not in cls.replace_month else cls.replace_month[x] for x in string.split()]),
             format,
         )
 
@@ -86,34 +81,24 @@ class AnimegoParser(Parser):
                 if data["type"] not in ["character", "person"]:
                     title_ru = item.find("a", {"href": data["url"], "title": True})
                     data["title"]["ru"] = title_ru["title"] if title_ru else None
-                    title_en_container = item.find(
-                        "div", {"class": "text-gray-dark-6 small mb-1"}
-                    ) or item.find(
+                    title_en_container = item.find("div", {"class": "text-gray-dark-6 small mb-1"}) or item.find(
                         "div",
                         {"class": "text-gray-dark-6 small mb-1 d-none d-sm-block"},
                     )
-                    data["title"]["en"] = (
-                        title_en_container.div.text if title_en_container else None
-                    )
+                    data["title"]["en"] = title_en_container.div.text if title_en_container else None
                 else:
                     data["title"]["en"] = (
-                        item.find(
-                            "div", {"class": "text-gray-dark-6 small mb-1"}
-                        ).div.text
+                        item.find("div", {"class": "text-gray-dark-6 small mb-1"}).div.text
                         if item.find("div", {"class": "text-gray-dark-6 small mb-1"})
                         else None
                     )
                     data["title"]["ru"] = (
-                        item.find("h3", {"class": "h5 font-weight-normal"}).find("a")[
-                            "title"
-                        ]
+                        item.find("h3", {"class": "h5 font-weight-normal"}).find("a")["title"]
                         if item.find("h3", {"class": "h5 font-weight-normal"})
                         else None
                     )
                 thumbnail = item.find("div", {"class": "anime-grid-lazy lazy"})
-                data["thumbnail"] = (
-                    thumbnail.get("data-original", None) if thumbnail else None
-                )
+                data["thumbnail"] = thumbnail.get("data-original", None) if thumbnail else None
                 self.client.replace_headers(
                     {
                         "Cookie": response.headers["Set-Cookie"],
@@ -130,15 +115,11 @@ class AnimegoParser(Parser):
         anime_data["url"] = url
 
         script_block = soup.find("script", type="application/ld+json")
-        anime_data["ld_json"] = (
-            self.client.json(script_block.text) if script_block else None
-        )
+        anime_data["ld_json"] = self.client.json(script_block.text) if script_block else None
 
         anime_data["animego_id"] = int(url[url.rfind("-") + 1 :])
         anime_data["title"] = {
-            Anime.Language.RUSSIAN: (
-                soup.find("div", class_="anime-title").find("h1").text.strip()
-            ),
+            Anime.Language.RUSSIAN: (soup.find("div", class_="anime-title").find("h1").text.strip()),
             Anime.Language.JAPANESE: [
                 title
                 for title in anime_data["ld_json"]["alternativeHeadline"]
@@ -176,9 +157,7 @@ class AnimegoParser(Parser):
 
         # Описание
         description_block = soup.find("div", class_="description")
-        anime_data["description"] = (
-            description_block.text.strip() if description_block else None
-        )
+        anime_data["description"] = description_block.text.strip() if description_block else None
 
         # Жанры
         genres = soup.select("dd.overflow-h a")
@@ -186,28 +165,20 @@ class AnimegoParser(Parser):
 
         # Оценка и количество голосов
         rating_block = soup.find("span", class_="rating-value")
-        anime_data["rating"] = (
-            float(rating_block.text.strip().replace(",", ".")) if rating_block else None
-        )
+        anime_data["rating"] = float(rating_block.text.strip().replace(",", ".")) if rating_block else None
         rating_count_block = soup.find("div", class_="rating-count")
-        anime_data["rating_count"] = (
-            int(rating_count_block.text.strip()) if rating_count_block else None
-        )
+        anime_data["rating_count"] = int(rating_count_block.text.strip()) if rating_count_block else None
 
         # Дата выхода
         if "startDate" in anime_data["ld_json"]:
-            anime_data["started"] = self.string2datetime(
-                anime_data["ld_json"]["startDate"], "%Y-%m-%d"
-            )
+            anime_data["started"] = self.string2datetime(anime_data["ld_json"]["startDate"], "%Y-%m-%d")
             anime_data["completed"] = (
                 self.string2datetime(anime_data["ld_json"]["endDate"], "%Y-%m-%d")
                 if "endDate" in anime_data["ld_json"]
                 else None
             )
         elif "createdAt" in anime_data["ld_json"]:
-            anime_data["started"] = self.string2datetime(
-                anime_data["ld_json"]["createdAt"], "%Y-%m-%d"
-            )
+            anime_data["started"] = self.string2datetime(anime_data["ld_json"]["createdAt"], "%Y-%m-%d")
             anime_data["completed"] = anime_data["started"]
         else:
             anime_data["started"], anime_data["completed"] = None, None
@@ -220,9 +191,7 @@ class AnimegoParser(Parser):
                 if " ч. " in duration_string:
                     hours, minutes = duration_string.split(" ч. ")
                     hours = int(hours)
-                    minutes = (
-                        int(minutes.split(" мин.")[0]) if " мин." in minutes else 0
-                    )
+                    minutes = int(minutes.split(" мин.")[0]) if " мин." in minutes else 0
                     anime_data["episode_duration"] = (hours * 60 + minutes) * 60
                 elif " мин." in duration_string:
                     minutes = int(duration_string.split(" мин.")[0])
@@ -258,17 +227,14 @@ class AnimegoParser(Parser):
             char_name = char.text.strip()
             seiyuu_tag = char.find_next("span").find_next("span")
             try:
-                seiyuu_name = (
-                    seiyuu_tag.find("span").text.strip() if seiyuu_tag else None
-                )
+                seiyuu_name = seiyuu_tag.find("span").text.strip() if seiyuu_tag else None
             except AttributeError:
                 seiyuu_name = None
             _ = {"name": char_name, "seiyuu": seiyuu_name}
             try:
                 for person in anime_data["ld_json"]["actor"]:
                     if (
-                        person.get("name").strip().lower()
-                        == _.get("seiyuu").strip().lower()
+                        person.get("name").strip().lower() == _.get("seiyuu").strip().lower()
                         if _.get("seiyuu")
                         else None
                     ):
@@ -300,9 +266,7 @@ class AnimegoParser(Parser):
                     Anime.Type.TV
                     if _type == "ТВ Сериал"
                     else (
-                        Anime.Type.OVA
-                        if _type == "OVA"
-                        else (Anime.Type.ONA if _type == "ONA" else Anime.Type.UNKNOWN)
+                        Anime.Type.OVA if _type == "OVA" else (Anime.Type.ONA if _type == "ONA" else Anime.Type.UNKNOWN)
                     )
                 )
             )
@@ -310,9 +274,7 @@ class AnimegoParser(Parser):
         anime_data["status"] = (
             Anime.Status.COMPLETED
             if anime_data["completed"]
-            else (
-                Anime.Status.ONGOING if anime_data["started"] else Anime.Status.UNKNOWN
-            )
+            else (Anime.Status.ONGOING if anime_data["started"] else Anime.Status.UNKNOWN)
         )
 
         for person in anime_data["ld_json"].get("director", []):
@@ -355,16 +317,8 @@ class AnimegoParser(Parser):
             items = ep.find_all("div")
             num = items[0].find("meta").get_attribute_list("content")[0]
             ep_title = items[1].text.strip() if items[1].text else ""
-            ep_date = (
-                items[2].find("span").get_attribute_list("data-label")[0]
-                if items[2].find("span")
-                else ""
-            )
-            ep_id = (
-                items[3].find("span").get_attribute_list("data-watched-id")[0]
-                if items[3].find("span")
-                else None
-            )
+            ep_date = items[2].find("span").get_attribute_list("data-label")[0] if items[2].find("span") else ""
+            ep_id = items[3].find("span").get_attribute_list("data-watched-id")[0] if items[3].find("span") else None
             ep_status = "анонс" if items[3].find("span") is None else "вышел"
             episodes_list.append(
                 Anime.Episode(

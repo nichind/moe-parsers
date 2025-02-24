@@ -7,4 +7,3 @@ async def test_adapter():
     client = Client()
     result = await client.get("https://httpbin.org/get")
     assert result.status == 200
-    
