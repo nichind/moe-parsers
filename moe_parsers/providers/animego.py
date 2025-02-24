@@ -1,5 +1,5 @@
-from ..parser import Parser
-from ..items import _BaseItem, Anime, Character, Person
+from ..core.parser import Parser
+from ..core.items import _BaseItem, Anime
 from typing import Unpack, AsyncGenerator, List
 from datetime import datetime
 from cutlet import Cutlet

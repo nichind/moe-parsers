@@ -10,3 +10,6 @@ __pycache__
 !tests.py
 test.*
 proxies*
+*egg*
+uv.lock
+tests.sh

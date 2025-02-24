@@ -92,6 +92,7 @@ class Anime(_BaseItem):
         RELEASED = "released"
         CANCELLED = "cancelled"
         HIATUS = "hiatus"
+        PAUSED = "paused"
         UNKNOWN = "unknown"
 
     class AgeRating(XEnum):
@@ -211,6 +212,10 @@ class Anime(_BaseItem):
     def total_episodes(self) -> int | None:
         return len(self.episodes) if self.episodes else None
 
+    @property
+    def all_titles(self) -> str:
+        return [str(y) for x in self.title.values() if len(x) > 0 for y in x if y]
+
     def __repr__(self):
         return f"{self.__class__.__name__}({self.__dict__})"
 
@@ -237,6 +242,7 @@ class Manga(_BaseItem):
     characters: List["Character"]
     external_links = List[Dict[str, str]]
     data: Dict
+    all_titles = Anime.all_titles
 
 
 class Character(_BaseItem):

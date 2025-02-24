@@ -1,5 +1,5 @@
-from ..parser import Parser
-from ..items import _BaseItem
+from ..core.parser import Parser
+from ..core.items import _BaseItem
 from typing import Unpack, AsyncGenerator, Literal, TypedDict, List
 
 
