@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "moe-parsers"
-version = "2.0.0"
+version = "2025.2.1"
 authors = [
     { name = "nichind", email = "nichinddev@gmail.com" }
 ]
@@ -16,7 +16,7 @@ dependencies = [
     "python-dotenv",
     "beautifulsoup4"
 ]
-keywords = ["aniboom", "kodik", "animego", "moe", "parser", "anime", "async"]
+keywords = ["shikimori", "manga", "aniboom", "kodik", "animego", "moe", "parser", "anime", "async"]
 license = { text = "MIT" }
 classifiers = [
     "Programming Language :: Python :: 3.11",

@@ -9,4 +9,6 @@ async def test_search():
     assert isinstance(item, Anime)
     assert len(item.characters) > 0
     assert len(item.directors) > 0
+    assert item.status == Anime.Status.RELEASED 
+    assert item.type == Anime.Type.TV
     

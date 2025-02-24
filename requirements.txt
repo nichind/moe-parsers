@@ -1,4 +1,3 @@
-
 ruff==v0.9.6
 coverage-badge~=1.1.0
 aiohttp
@@ -7,3 +6,4 @@ python-dotenv
 Faker==36.1.1
 cutlet==0.5.0
 unidic-lite==1.0.8
+cutlet==0.5.0
