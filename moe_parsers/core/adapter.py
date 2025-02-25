@@ -267,7 +267,7 @@ class _Client:
                 _response=response,
             )
         if self._my("debug", False):
-            print(response)
+            print(response, response.text, sep="\n")
         if self.switcher.get_by_url(proxy):
             self.switcher.get_by_url(proxy).latency = int(
                 (datetime.now() - self.switcher.get_by_url(proxy).last_used).total_seconds() * 1000

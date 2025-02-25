@@ -70,6 +70,9 @@ class _BaseItem:
     def __init__(self, **params):
         self.__dict__.update(params)
 
+    def __iter__(self):
+        yield self
+
 
 class Anime(_BaseItem):
     class Type(XEnum):
@@ -197,6 +200,23 @@ class Anime(_BaseItem):
     @property
     def mal_id(self) -> str | int:
         return self.get_id(id_type=_BaseItem.IDType.MAL)
+
+    @property
+    def people(self) -> List["Person"]:
+        return [
+            getattr(self, name)
+            for name in (
+                "directors",
+                "actors",
+                "producers",
+                "writers",
+                "editors",
+                "composers",
+                "operators",
+                "designers",
+            )
+            if name in self.__dict__
+        ]
 
     @property
     def total_episodes(self) -> int | None:

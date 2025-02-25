@@ -23,8 +23,8 @@ class ShikimoriParser(Parser):
         self.client.base_url = "https://shikimori.one/"
 
     graphql_query = {
-        "mangas": "{mangas({params}) {id malId name russian licenseNameRu english japanese synonyms kind score status volumes chapters airedOn {date} releasedOn {date} url poster {id originalUrl mainUrl} licensors createdAt updatedAt isCensored genres {id name russian kind} publishers {id name} externalLinks {id kind url createdAt updatedAt} personRoles {id rolesRu rolesEn person {id malId name russian japanese synonyms url isSeyu isMangaka isProducer website createdAt updatedAt birthOn {date} deceasedOn {date} poster {id originalUrl mainUrl previewUrl}}} characterRoles {id rolesRu rolesEn character {id malId name russian japanese synonyms url createdAt updatedAt isAnime isManga isRanobe poster {id originalUrl mainUrl previewUrl} description descriptionHtml descriptionSource}} related {id anime {id name} manga {id name} relationKind relationText} scoresStats {score count} statusesStats {status count} description descriptionHtml descriptionSource}}",
-        "animes": "{animes({params}) {id malId name russian licenseNameRu english japanese synonyms kind rating score status episodes episodesAired duration airedOn {date} releasedOn {date} url season poster {id originalUrl mainUrl} fansubbers fandubbers licensors nextEpisodeAt isCensored genres {id name russian kind} studios {id name imageUrl} externalLinks {id kind url createdAt updatedAt} personRoles {id rolesRu rolesEn person {id malId name russian japanese synonyms url isSeyu isMangaka isProducer website birthOn {date} deceasedOn {date} poster {id originalUrl mainUrl previewUrl}}} characterRoles {id rolesRu rolesEn character {id malId name russian japanese synonyms url isAnime isManga isRanobe poster {id originalUrl mainUrl previewUrl} description descriptionHtml descriptionSource}} related {id anime {id name} manga {id name} relationKind relationText} videos {id url name kind playerUrl imageUrl} screenshots {id originalUrl x166Url} scoresStats {score count} statusesStats {status count} description descriptionSource}}",
+        "mangas": "{mangas({params}) {id malId name russian licenseNameRu english japanese synonyms kind score status volumes chapters airedOn {date} releasedOn {date} url poster {id originalUrl mainUrl} licensors createdAt updatedAt isCensored genres {id name russian kind} publishers {id name} externalLinks {id kind url createdAt updatedAt} personRoles {id rolesRu rolesEn person {id malId name russian japanese synonyms url isSeyu isMangaka isProducer website createdAt updatedAt birthOn {date} deceasedOn {date} poster {id originalUrl mainUrl previewUrl}}} characterRoles {id rolesRu rolesEn character {id malId name russian japanese synonyms description url createdAt updatedAt isAnime isManga isRanobe poster {id originalUrl mainUrl previewUrl} description descriptionHtml descriptionSource}} related {id anime {id name} manga {id name} relationKind relationText} scoresStats {score count} statusesStats {status count} description descriptionHtml descriptionSource}}",
+        "animes": "{animes({params}) {id malId name russian licenseNameRu english japanese synonyms kind rating score status episodes episodesAired duration airedOn {date} releasedOn {date} url season poster {id originalUrl mainUrl} fansubbers fandubbers licensors nextEpisodeAt isCensored genres {id name russian kind} studios {id name imageUrl} externalLinks {id kind url createdAt updatedAt} personRoles {id rolesRu rolesEn person {id malId name russian japanese synonyms url isSeyu isMangaka isProducer website birthOn {date} deceasedOn {date} poster {id originalUrl mainUrl previewUrl}}} characterRoles {id rolesRu rolesEn character {id malId name russian japanese synonyms description url isAnime isManga isRanobe poster {id originalUrl mainUrl previewUrl} description descriptionHtml descriptionSource}} related {id anime {id name} manga {id name} relationKind relationText} videos {id url name kind playerUrl imageUrl} screenshots {id originalUrl x166Url} scoresStats {score count} statusesStats {status count} description descriptionSource}}",
         "characters": "{characters({params}) {id malId name russian japanese synonyms url createdAt updatedAt isAnime isManga isRanobe poster {id originalUrl mainUrl} description descriptionHtml descriptionSource}}",
         "people": "{people({params}) {id malId name russian japanese synonyms url isSeyu isMangaka isProducer website createdAt updatedAt birthOn {date} deceasedOn {date} poster {id originalUrl mainUrl}}}",
         "autocomplete": "{animes({params}) {id malId name russian licenseNameRu english japanese synonyms kind rating score status season poster {previewUrl} nextEpisodeAt genres {id name russian kind} studios {id name}} mangas({params}) {id malId name russian licenseNameRu english japanese synonyms kind score status volumes chapters poster {previewUrl} isCensored genres {id name russian kind} publishers {id name}}}",
@@ -68,44 +68,19 @@ class ShikimoriParser(Parser):
         anime.studios = [studio["name"] for studio in data.get("studios", [])]
         anime.genres = {genre["kind"]: genre["name"] for genre in data.get("genres", [])}
         anime.directors = [
-            Person(
-                ids={_BaseItem.IDType.SHIKIMORI: p["person"]["id"]},
-                name={_BaseItem.Language.ENGLISH: [p["person"]["name"]]},
-            )
-            for p in data.get("personRoles", [])
-            if "Director" in p.get("rolesEn", [])
+            cls.data2person(p["person"]) for p in data.get("personRoles", []) if "Director" in p.get("rolesEn", [])
         ]
         anime.producers = [
-            Person(
-                ids={_BaseItem.IDType.SHIKIMORI: p["person"]["id"]},
-                name={_BaseItem.Language.ENGLISH: [p["person"]["name"]]},
-            )
-            for p in data.get("personRoles", [])
-            if "Producer" in p.get("rolesEn", [])
+            cls.data2person(p["person"]) for p in data.get("personRoles", []) if "Producer" in p.get("rolesEn", [])
         ]
         anime.actors = [
-            Person(
-                ids={_BaseItem.IDType.SHIKIMORI: p["person"]["id"]},
-                name={_BaseItem.Language.ENGLISH: [p["person"]["name"]]},
-            )
-            for p in data.get("personRoles", [])
-            if "Voice Actor" in p.get("rolesEn", [])
+            cls.data2person(p["person"]) for p in data.get("personRoles", []) if "Voice Actor" in p.get("rolesEn", [])
         ]
         anime.writers = [
-            Person(
-                ids={_BaseItem.IDType.SHIKIMORI: p["person"]["id"]},
-                name={_BaseItem.Language.ENGLISH: [p["person"]["name"]]},
-            )
-            for p in data.get("personRoles", [])
-            if "Script" in p.get("rolesEn", [])
+            cls.data2person(p["person"]) for p in data.get("personRoles", []) if "Script" in p.get("rolesEn", [])
         ]
         anime.composers = [
-            Person(
-                ids={_BaseItem.IDType.SHIKIMORI: p["person"]["id"]},
-                name={_BaseItem.Language.ENGLISH: [p["person"]["name"]]},
-            )
-            for p in data.get("personRoles", [])
-            if "Music" in p.get("rolesEn", [])
+            cls.data2person(p["person"]) for p in data.get("personRoles", []) if "Music" in p.get("rolesEn", [])
         ]
         anime.characters = []
         for character in data.get("characterRoles", []):
@@ -186,7 +161,10 @@ class ShikimoriParser(Parser):
             _BaseItem.Language.RUSSIAN: [data.get("russian", "")],
             _BaseItem.Language.ENGLISH: [data.get("name", "")],
             _BaseItem.Language.JAPANESE: [data.get("japanese", "")],
+            _BaseItem.Language.ROMAJI: [],
         }
+        for title in person.name[_BaseItem.Language.JAPANESE]:
+            person.name[_BaseItem.Language.ROMAJI].append(katsu.romaji(title).title())
         person.thumbnail = data.get("poster", {}).get("mainUrl") if data.get("poster") else None
         person.image = data.get("poster", {}).get("mainUrl") if data.get("poster") else None
         person.birthdate = (
@@ -419,7 +397,7 @@ class ShikimoriParser(Parser):
                             "{params}",
                             ", ".join(
                                 f'{key}: "{",".join(value) if isinstance(value, list) else value}"'
-                                if not isinstance(value, (int, float))
+                                if not isinstance(value, (int, float)) and key not in ["order"]
                                 else f"{key}: {value}"
                                 for key, value in kwargs.items()
                                 if key not in ["startPage", "endPage"]
