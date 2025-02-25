@@ -102,7 +102,7 @@ class _BaseItem:
             The ID associated with the Shikimori ID type, or None if not available.
         """
         return self.get_id(id_type=_BaseItem.IDType.SHIKIMORI)
-    
+
     mal = id
 
     def __repr__(self):
@@ -129,7 +129,7 @@ class _BaseItem:
         """
         Called when code tries to iterate over an instance of the class.
         Made to avoid exceptions when only 1 item was fetched but the code logic expects a list of items
-        
+
         Example:
         >>> item = Anime()
         >>> for i in item:

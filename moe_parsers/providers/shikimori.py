@@ -201,7 +201,7 @@ class ShikimoriParser(Parser):
             _BaseItem.Language.RUSSIAN: [data.get("russian", "")],
             _BaseItem.Language.ENGLISH: [data.get("name", "")],
             _BaseItem.Language.JAPANESE: [data.get("japanese", "")],
-            _BaseItem.Language.ROMAJI: []
+            _BaseItem.Language.ROMAJI: [],
         }
         for name in character.name[_BaseItem.Language.JAPANESE]:
             character.name[_BaseItem.Language.ROMAJI].append(katsu.romaji(name).title())
