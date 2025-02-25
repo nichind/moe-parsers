@@ -7,6 +7,7 @@ from faker import Faker
 from bs4 import BeautifulSoup
 from datetime import datetime
 from urllib.parse import urlparse
+from random import randint
 
 
 class _ProxyParams(TypedDict, total=False):
@@ -278,7 +279,7 @@ class _Client:
             and str(response.status).startswith("5")
             and (response.status not in kwargs.get("ingore_codes", self._my("ingore_codes", [])))
         ):
-            await sleep(0.2)
+            await sleep(float("0." + "".join(randint(1, 9) for x in range(3))))
             kwargs.update({"retries": kwargs.get("retries", 0) + 1})
             if kwargs.get("use_switcher", True) and len(self.switcher.proxies) > 1:
                 ignored = kwargs.get("ignore_proxies", [])

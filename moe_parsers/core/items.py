@@ -62,7 +62,7 @@ class _BaseItem:
 
     @property
     def id(self) -> int:
-        return self.item_id
+        return self.ids.get(_BaseItem.IDType.MAL, None)
 
     def __repr__(self):
         return f"{self.__class__.__name__}({self.__dict__})"

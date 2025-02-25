@@ -11,3 +11,4 @@ async def test_search():
     assert len(item.directors) > 0
     assert item.status == Anime.Status.RELEASED
     assert item.type == Anime.Type.TV
+    assert item.thumbnail

@@ -436,7 +436,9 @@ class ShikimoriParser(Parser):
                             "people": self.data2person,
                         }[result_type](result)
 
-    async def search(self, sort_by_match: bool = False, **kwargs: Unpack[SearchArguments]) -> List[Anime | Manga | Character | Person]:
+    async def search(
+        self, sort_by_match: bool = False, **kwargs: Unpack[SearchArguments]
+    ) -> List[Anime | Manga | Character | Person]:
         results = [item async for item in self.search_generator(**kwargs)]
         if kwargs.get("searchType", "animes") == "autocomplete" and kwargs.get("search", None):
             if results:
