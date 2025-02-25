@@ -100,6 +100,7 @@ class Anime(_BaseItem):
         PG_13 = "pg_13"
         R = "r"
         R_PLUS = "r_plus"
+        RX = "rx"
         NC_17 = "nc_17"
         NR = "nr"
         UNKNOWN = "unknown"

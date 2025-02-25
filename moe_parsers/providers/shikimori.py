@@ -82,11 +82,13 @@ class ShikimoriParser(Parser):
         anime.composers = [
             cls.data2person(p["person"]) for p in data.get("personRoles", []) if "Music" in p.get("rolesEn", [])
         ]
-        anime.characters = []
-        for character in data.get("characterRoles", []):
-            char = cls.data2character(character.get("character", {}))
-            char.type = Character.Type(character.get("rolesEn", ["unknown"])[0].lower())
-            anime.characters += [char]
+        anime.characters = [
+            Character(
+                type=Character.Type(character.get("rolesEn", ["unknown"])[0].lower()),
+                **cls.data2character(character.get("character", {})).__dict__,
+            )
+            for character in data.get("characterRoles", [])
+        ]
         anime.screenshots = data.get("screenshots", [])
         anime.related = data.get("related", [])
         anime.videos = data.get("videos", [])
@@ -115,6 +117,8 @@ class ShikimoriParser(Parser):
             _BaseItem.Language.JAPANESE: [data.get("japanese", "")],
             _BaseItem.Language.ROMAJI: [],
         }
+        for title in manga.title[_BaseItem.Language.JAPANESE]:
+            manga.title[_BaseItem.Language.ROMAJI].append(katsu.romaji(title).title())
         manga.status = Anime.Status(data.get("status", "unknown").replace("anons", "announced"))
         for title in manga.title[_BaseItem.Language.JAPANESE]:
             rom = katsu.romaji(title).title()
@@ -139,11 +143,13 @@ class ShikimoriParser(Parser):
         )
         manga.studios = [studio["name"] for studio in data.get("studios", [])]
         manga.genres = {genre["kind"]: genre["name"] for genre in data.get("genres", [])}
-        manga.characters = []
-        for character in data.get("characterRoles", []):
-            char = cls.data2character(character.get("character", {}))
-            char.type = Character.Type(character.get("rolesEn", ["unknown"])[0].lower())
-            manga.characters += [char]
+        manga.characters = [
+            Character(
+                type=Character.Type(character.get("rolesEn", ["unknown"])[0].lower()),
+                **cls.data2character(character.get("character", {})).__dict__,
+            )
+            for character in data.get("characterRoles", [])
+        ]
         manga.description = {
             _BaseItem.Language.RUSSIAN: data.get("description", ""),
         }
@@ -163,8 +169,8 @@ class ShikimoriParser(Parser):
             _BaseItem.Language.JAPANESE: [data.get("japanese", "")],
             _BaseItem.Language.ROMAJI: [],
         }
-        for title in person.name[_BaseItem.Language.JAPANESE]:
-            person.name[_BaseItem.Language.ROMAJI].append(katsu.romaji(title).title())
+        for name in person.name[_BaseItem.Language.JAPANESE]:
+            person.name[_BaseItem.Language.ROMAJI].append(katsu.romaji(name).title())
         person.thumbnail = data.get("poster", {}).get("mainUrl") if data.get("poster") else None
         person.image = data.get("poster", {}).get("mainUrl") if data.get("poster") else None
         person.birthdate = (
@@ -195,7 +201,10 @@ class ShikimoriParser(Parser):
             _BaseItem.Language.RUSSIAN: [data.get("russian", "")],
             _BaseItem.Language.ENGLISH: [data.get("name", "")],
             _BaseItem.Language.JAPANESE: [data.get("japanese", "")],
+            _BaseItem.Language.ROMAJI: []
         }
+        for name in character.name[_BaseItem.Language.JAPANESE]:
+            character.name[_BaseItem.Language.ROMAJI].append(katsu.romaji(name).title())
         character.thumbnail = data.get("poster", {}).get("previewUrl", None) if data.get("poster") else None
         character.description = {
             _BaseItem.Language.RUSSIAN: data.get("description", ""),
