@@ -381,7 +381,6 @@ class ShikimoriParser(Parser):
     async def search_generator(
         self, **kwargs: Unpack[SearchArguments]
     ) -> AsyncGenerator[Anime | Manga | Character | Person, None]:
-        """A generator which yields search results from Shikimori."""
         start_page = kwargs.get("startPage", 1)
         end_page = kwargs.get("endPage", start_page)
         limit = kwargs.get("limit", 20)

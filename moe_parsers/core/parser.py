@@ -19,6 +19,12 @@ class _Parser:
 
 class Parser(_Parser):
     def __init__(self, **params: Unpack[_Parser.ParserParams]):
+        """
+        Initialize a website parser.
+
+        Args:
+            **kwargs: Parameters from :class:`_Parser.ParserParams`
+        """
         self.language = "EN"
         self.client = Client()
         self.__dict__.update(**params)

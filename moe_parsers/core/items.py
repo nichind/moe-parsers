@@ -1,4 +1,4 @@
-from typing import List, TypedDict, Unpack, Literal, Dict
+from typing import List, TypedDict, Unpack, Literal, Dict, Self
 from .adapter import _Client
 from .parser import _Parser
 from enum import Enum
@@ -61,16 +61,80 @@ class _BaseItem:
     thumbnail: str
 
     @property
-    def id(self) -> int:
+    def id(self) -> str | int | None:
+        """
+        Retrieves the ID of the item using the MyAnimeList ID type.
+
+        Returns
+        -------
+        str or int
+            The ID associated with the MAL ID type, or None if not available.
+        """
         return self.ids.get(_BaseItem.IDType.MAL, None)
+
+    def get_id(
+        self,
+        id_type: Literal["shikimori", "mal", "kinopoisk", "imdb", "animego", "kodik"] = "mal",
+    ) -> str | int:
+        """
+        Retrieves the ID of the item using the specified ID type.
+
+        Parameters
+        ----------
+        id_type : str
+            The ID type to use for retrieval. Defaults to "mal".
+
+        Returns
+        -------
+        str or int
+            The ID associated with the specified ID type, or None if not available.
+        """
+        return self.ids.get(_BaseItem.IDType(id_type), None)
+
+    @property
+    def shikimori_id(self) -> str | int:
+        """
+        Retrieves the ID of the item using the Shikimori ID type.
+
+        Returns
+        -------
+        str or int
+            The ID associated with the Shikimori ID type, or None if not available.
+        """
+        return self.get_id(id_type=_BaseItem.IDType.SHIKIMORI)
+    
+    mal = id
 
     def __repr__(self):
         return f"{self.__class__.__name__}({self.__dict__})"
 
     def __init__(self, **params):
+        """
+        Initialize a new instance of the class.
+
+        Parameters
+        ----------
+        **params : dict
+            The parameters to initialize the new instance with.
+
+        Notes
+        -----
+        This method updates the current instance's __dict__ with the given
+        parameters, so it is possible to pass any keyword argument to it and
+        it will be set as an attribute of the instance.
+        """
         self.__dict__.update(params)
 
     def __iter__(self):
+        """
+        Called when code tries to iterate over an instance of the class.
+        Made to avoid exceptions when only 1 item was fetched but the code logic expects a list of items
+        
+        Example:
+        >>> item = Anime()
+        >>> for i in item:
+        >>>     print(i)   # Will print the item, close the loop
+        """
         yield self
 
 
@@ -179,31 +243,29 @@ class Anime(_BaseItem):
 
     @property
     def total_duration(self) -> int | None:
+        """
+        Total duration of all episodes (even if episode is not released yet) in minutes
+
+        Returns:
+            int | None: Total duration in minutes if episodes are present, None otherwise
+        """
         return self.episode_duration * len(self.episodes) if self.episodes else None
 
     @property
     def released_duration(self) -> int | None:
+        """
+        Total duration of all released episodes in minutes
+        """
         if self.total_duration:
             return self.episode_duration * len(
                 [episode for episode in self.episodes if episode.status == self.Episode.EpisodeStatus.RELEASED]
             )
 
-    def get_id(
-        self,
-        id_type: Literal["shikimori", "mal", "kinopoisk", "imdb", "animego", "kodik"],
-    ) -> str | int:
-        return self.ids.get(_BaseItem.IDType(id_type), None)
-
-    @property
-    def shikimori_id(self) -> str | int:
-        return self.get_id(id_type=_BaseItem.IDType.SHIKIMORI)
-
-    @property
-    def mal_id(self) -> str | int:
-        return self.get_id(id_type=_BaseItem.IDType.MAL)
-
     @property
     def people(self) -> List["Person"]:
+        """
+        List of all people in the anime (directors, actors, producers, writers, editors, composers, operators, designers)
+        """
         return [
             getattr(self, name)
             for name in (
@@ -221,10 +283,23 @@ class Anime(_BaseItem):
 
     @property
     def total_episodes(self) -> int | None:
+        """
+        The total number of episodes in the anime. If the anime has no episodes,
+        this property will be None.
+
+        Returns:
+            int | None: The total number of episodes or None
+        """
         return len(self.episodes) if self.episodes else None
 
     @property
     def all_titles(self) -> str:
+        """
+        All titles of the anime in all languages
+
+        Returns:
+            str: A string of all titles in all languages separated by commas
+        """
         return [str(y) for x in self.title.values() if len(x) > 0 for y in x if y]
 
     def __repr__(self):
@@ -243,7 +318,6 @@ class Manga(_BaseItem):
         UNKNOWN = "unknown"
 
     Status = Anime.Status
-
     item_type = _BaseItem.ItemType.MANGA
     type: Type
     ids: Dict[_BaseItem.IDType, str | int]
