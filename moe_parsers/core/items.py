@@ -6,8 +6,8 @@ from datetime import datetime
 
 
 class XEnum(Enum):
-    replaces: Dict[str, List[str] | str] = {}
-
+    replaces: Dict[str, List[str] | str]
+    
     @classmethod
     def values(cls) -> List:
         return [value.value for key, value in cls.__dict__.items() if not key.startswith("_")]
