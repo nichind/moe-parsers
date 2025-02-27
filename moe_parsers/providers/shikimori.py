@@ -38,11 +38,7 @@ class ShikimoriParser(Parser):
             _BaseItem.IDType.MAL: data.get("malId"),
             _BaseItem.IDType.SHIKIMORI: data.get("id"),
         }
-        anime.age_rating = (
-            Anime.AgeRating(data.get("rating", "unknown"))
-            if str(data.get("rating")).lower() != "none"
-            else Anime.AgeRating("unknown")
-        )
+        anime.age_rating = data.get("rating", "unknown") if str(data.get("rating")).lower() != "none" else "unknown"
         anime.title = {
             _BaseItem.Language.RUSSIAN: [data.get("russian", "")],
             _BaseItem.Language.ENGLISH: [data.get("english", "")],

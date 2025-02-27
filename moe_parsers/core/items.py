@@ -6,6 +6,8 @@ from datetime import datetime
 
 
 class XEnum(Enum):
+    replaces: Dict[str, List[str] | str] = {}
+
     @classmethod
     def values(cls) -> List:
         return [value.value for key, value in cls.__dict__.items() if not key.startswith("_")]
@@ -26,6 +28,14 @@ class XEnum(Enum):
 
     def __hash__(self):
         return super().__hash__()
+
+
+class ItemDatetime(datetime):
+    def __str__(self):
+        """
+        Returns a string representation of the datetime object in the format %Y-%m-%d
+        """
+        return super().__str__().split(" ")[0]
 
 
 class _BaseItem:
@@ -125,15 +135,37 @@ class _BaseItem:
         """
         self.__dict__.update(params)
 
+    def __setattr__(self, name, value):
+        """
+        Called when an attribute is set on the instance.
+
+        Parameters
+        ----------
+        name : str
+            The name of the attribute to set.
+        value : object
+            The value to set the attribute to.
+
+        Notes
+        -----
+        This method is overridden to convert datetime objects to ItemDatetime
+        and string literals to Enums when setting attributes on the instance.
+        """
+        if isinstance(value, datetime):
+            value = ItemDatetime.fromtimestamp(value.timestamp())
+        elif type(self.__class__.__annotations__.get(name, None)) is type(XEnum) and isinstance(value, str):
+            value = self.__class__.__annotations__[name](value)
+        self.__dict__[name] = value
+
     def __iter__(self):
         """
         Called when code tries to iterate over an instance of the class.
         Made to avoid exceptions when only 1 item was fetched but the code logic expects a list of items
 
         Example:
-        >>> item = Anime()
+        >>> item = await parser.search(limit=1, searchType="animes")  # Instead of List[Item] returns just Item because of limit=1 and type(searchType) is str and searchType != "all"
         >>> for i in item:
-        >>>     print(i)   # Will print the item, close the loop
+        >>>     print(i)  # Will print the item, close the loop
         """
         yield self
 
