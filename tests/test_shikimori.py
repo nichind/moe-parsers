@@ -1,10 +1,10 @@
 import pytest
-from moe_parsers.providers.shikimori import ShikimoriParser, Anime
+from moe_parsers.providers.shikimori import Shikimori, Anime
 
 
 @pytest.mark.asyncio
 async def test_search():
-    parser = ShikimoriParser()
+    parser = Shikimori()
     item = await parser.search(limit=1, search="plastic memories", searchType="animes")
     assert isinstance(item, Anime)
     assert len(item.characters) > 0
