@@ -9,7 +9,7 @@ from difflib import SequenceMatcher
 katsu = Cutlet()
 
 
-class AnimegoParser(Parser):
+class Animego(Parser):
     def __init__(self, **kwargs: Unpack[Parser.ParserParams]):
         self.language = Parser.Language.RU
         super().__init__(**kwargs)

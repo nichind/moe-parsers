@@ -1,6 +1,6 @@
-from .animego import AnimegoParser
-from .kodik import KodikParser
-from .shikimori import ShikimoriParser
+from .animego import Animego
+from .kodik import Kodik
+from .shikimori import Shikimori
 
 
-__all__ = ["AnimegoParser", "KodikParser", "ShikimoriParser"]
+__all__ = ["Animego", "Kodik", "Shikimori"]

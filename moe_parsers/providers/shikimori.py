@@ -9,7 +9,7 @@ from difflib import SequenceMatcher
 katsu = Cutlet()
 
 
-class ShikimoriParser(Parser):
+class Shikimori(Parser):
     def __init__(self, **kwargs: Unpack[Parser.ParserParams]):
         self.language = Parser.Language.RU
         super().__init__(**kwargs)
@@ -46,10 +46,14 @@ class ShikimoriParser(Parser):
             _BaseItem.Language.ROMAJI: [],
         }
         for title in anime.title[_BaseItem.Language.JAPANESE]:
-            anime.title[_BaseItem.Language.ROMAJI].append(katsu.romaji(title).title())
+            rom = katsu.romaji(title).title()
+            if rom in anime.title[_BaseItem.Language.ENGLISH]:
+                continue
+            if rom and rom != "?" * len(rom) and rom not in anime.title[_BaseItem.Language.ROMAJI]:
+                anime.title[_BaseItem.Language.ROMAJI].append(rom)
         anime.thumbnail = data.get("poster", {}).get("mainUrl")
-        anime.type = Anime.Type(data.get("kind", "unknown"))
-        anime.status = Anime.Status(data.get("status", "unknown").replace("anons", "announced"))
+        anime.type = data.get("kind", "unknown")
+        anime.status = data.get("status", "unknown").replace("anons", "announced")
         anime.episode_duration = data.get("duration", 0)
         anime.started = (
             datetime.strptime(data.get("airedOn", {}).get("date", ""), "%Y-%m-%d")
@@ -102,11 +106,7 @@ class ShikimoriParser(Parser):
             _BaseItem.IDType.MAL: data.get("malId"),
             _BaseItem.IDType.SHIKIMORI: data.get("id"),
         }
-        manga.age_rating = (
-            Anime.AgeRating(data.get("rating", "unknown"))
-            if str(data.get("rating")).lower() != "none"
-            else Anime.AgeRating("unknown")
-        )
+        manga.age_rating = data.get("rating", "unknown") if str(data.get("rating")).lower() != "none" else "unknown"
         manga.title = {
             _BaseItem.Language.RUSSIAN: [data.get("russian", "")],
             _BaseItem.Language.ENGLISH: [data.get("english", "")],
@@ -114,17 +114,18 @@ class ShikimoriParser(Parser):
             _BaseItem.Language.ROMAJI: [],
         }
         for title in manga.title[_BaseItem.Language.JAPANESE]:
-            manga.title[_BaseItem.Language.ROMAJI].append(katsu.romaji(title).title())
-        manga.status = Anime.Status(data.get("status", "unknown").replace("anons", "announced"))
+            if katsu.romaji(title).title() not in manga.title[_BaseItem.Language.ROMAJI]:
+                manga.title[_BaseItem.Language.ROMAJI].append(katsu.romaji(title).title())
+        manga.status = data.get("status", "unknown").replace("anons", "announced")
         for title in manga.title[_BaseItem.Language.JAPANESE]:
             rom = katsu.romaji(title).title()
             if rom in manga.title[_BaseItem.Language.ENGLISH]:
-                manga.title[_BaseItem.Language.ENGLISH].remove(rom)
-            if rom and rom != "?" * len(rom):
+                continue
+            if rom and rom != "?" * len(rom) and rom not in manga.title[_BaseItem.Language.ROMAJI]:
                 manga.title[_BaseItem.Language.ROMAJI].append(rom)
         manga.thumbnail = data.get("poster", {}).get("mainUrl")
-        manga.type = Manga.Type(data.get("kind", "unknown"))
-        manga.status = Manga.Status(data.get("status", "unknown"))
+        manga.type = data.get("kind", "unknown")
+        manga.status = data.get("status", "unknown")
         manga.volumes = data.get("volumes", 0)
         manga.chapters = data.get("chapters", 0)
         manga.started = (
@@ -166,7 +167,8 @@ class ShikimoriParser(Parser):
             _BaseItem.Language.ROMAJI: [],
         }
         for name in person.name[_BaseItem.Language.JAPANESE]:
-            person.name[_BaseItem.Language.ROMAJI].append(katsu.romaji(name).title())
+            if katsu.romaji(name).title() not in person.name[_BaseItem.Language.ROMAJI]:
+                person.name[_BaseItem.Language.ROMAJI].append(katsu.romaji(name).title())
         person.thumbnail = data.get("poster", {}).get("mainUrl") if data.get("poster") else None
         person.image = data.get("poster", {}).get("mainUrl") if data.get("poster") else None
         person.birthdate = (
@@ -207,6 +209,103 @@ class ShikimoriParser(Parser):
         }
         character.url = data.get("url", "")
         return character
+    async def search_generator(
+        self, **kwargs: Unpack["SearchArguments"]
+    ) -> AsyncGenerator[Anime | Manga | Character | Person, None]:
+        start_page = kwargs.get("startPage", 1)
+        end_page = kwargs.get("endPage", start_page)
+        limit = kwargs.get("limit", 20)
+        kwargs["limit"] = limit
+        search_types = kwargs.get("searchType", ["animes", "mangas"])
+        if search_types == "all":
+            search_types = ["animes", "mangas", "people", "characters"]
+        if not isinstance(search_types, list):
+            search_types = [search_types]
+        if "searchType" in kwargs:
+            del kwargs["searchType"]
+        for page in range(start_page, end_page + 1):
+            kwargs["page"] = page
+            for path in search_types:
+                response = await self.client.post(
+                    url=self.client.base_url + "api/graphql",
+                    page=page,
+                    json={
+                        "operationName": None,
+                        "variables": {},
+                        "query": self.graphql_query.get(path).replace(
+                            "{params}",
+                            ", ".join(
+                                f'{key}: "{",".join(value) if isinstance(value, list) else value}"'
+                                if not isinstance(value, (int, float)) and key not in ["order"]
+                                else f"{key}: {value}"
+                                for key, value in kwargs.items()
+                                if key not in ["startPage", "endPage"]
+                            ),
+                        ),
+                    },
+                )
+                for result_type, results in response.json.get("data", {}).items():
+                    for result in results:
+                        yield {
+                            "animes": self.data2anime,
+                            "mangas": self.data2manga,
+                            "characters": self.data2character,
+                            "people": self.data2person,
+                        }[result_type](result)
+
+    async def search(
+        self, sort_by_match: bool = False, **kwargs: Unpack["SearchArguments"]
+    ) -> List[Anime | Manga | Character | Person]:
+        results = [item async for item in self.search_generator(**kwargs)]
+        if kwargs.get("searchType", "animes") == "autocomplete" and kwargs.get("search", None):
+            if results:
+                search_query = kwargs.get("search", None)
+                if search_query and sort_by_match:
+                    results.sort(
+                        key=lambda item: SequenceMatcher(
+                            None,
+                            search_query.lower(),
+                            (
+                                item.title.get(_BaseItem.Language.ROMAJI, [None])[0]
+                                or item.title.get(_BaseItem.Language.ENGLISH, [None])[0]
+                                or item.name.get(_BaseItem.Language.ROMAJI, [None])[0]
+                                or item.name.get(_BaseItem.Language.ENGLISH, [None])[0]
+                            ).lower(),
+                        ).ratio(),
+                        reverse=True,
+                    )
+        return results[0] if len(results) == 1 else results
+
+    async def get_info_generator(
+        self,
+        item_type: Literal["animes", "mangas", "characters", "people"]
+        | List[Literal["animes", "mangas", "characters", "people"]],
+        item_id: int | str,
+    ) -> AsyncGenerator[
+        Anime | Manga | Character | Person | List[Anime | Manga | Character | Person],
+        None,
+    ]:
+        async for result in self.search_generator(
+            ids=item_id,
+            searchType=item_type,
+            limit=str(item_id).count(",") if str(item_id).count(",") > 0 else 1,
+        ):
+            yield result
+
+    async def get_info(
+        self,
+        item_type: Literal["animes", "mangas", "characters", "people"]
+        | List[Literal["animes", "mangas", "characters", "people"]],
+        item_id: int | str,
+        item: Anime | Manga | Character | Person = None,
+    ) -> List[Anime | Manga | Character | Person] | Anime | Manga | Character | Person:
+        results = []
+        async for result in self.get_info_generator(item_type, item_id):
+            results += [result]
+        if len(results) == 1:
+            if item and isinstance(item, type(results[0])):
+                item.__dict__ == results[0].__dict__
+        return results[0] if len(results) == 1 else results
 
     class SearchArguments(TypedDict, total=False):
         searchType: (
@@ -373,101 +472,3 @@ class ShikimoriParser(Parser):
         isProducer: bool
         isMangaka: bool
         search: str
-
-    async def search_generator(
-        self, **kwargs: Unpack[SearchArguments]
-    ) -> AsyncGenerator[Anime | Manga | Character | Person, None]:
-        start_page = kwargs.get("startPage", 1)
-        end_page = kwargs.get("endPage", start_page)
-        limit = kwargs.get("limit", 20)
-        kwargs["limit"] = limit
-        search_types = kwargs.get("searchType", ["animes", "mangas"])
-        if not isinstance(search_types, list):
-            search_types = [search_types]
-        if search_types == "all":
-            search_types = ["animes", "mangas", "people", "characters"]
-        if "searchType" in kwargs:
-            del kwargs["searchType"]
-        for page in range(start_page, end_page + 1):
-            kwargs["page"] = page
-            for path in search_types:
-                response = await self.client.post(
-                    url=self.client.base_url + "api/graphql",
-                    page=page,
-                    json={
-                        "operationName": None,
-                        "variables": {},
-                        "query": self.graphql_query.get(path).replace(
-                            "{params}",
-                            ", ".join(
-                                f'{key}: "{",".join(value) if isinstance(value, list) else value}"'
-                                if not isinstance(value, (int, float)) and key not in ["order"]
-                                else f"{key}: {value}"
-                                for key, value in kwargs.items()
-                                if key not in ["startPage", "endPage"]
-                            ),
-                        ),
-                    },
-                )
-                for result_type, results in response.json.get("data", {}).items():
-                    for result in results:
-                        yield {
-                            "animes": self.data2anime,
-                            "mangas": self.data2manga,
-                            "characters": self.data2character,
-                            "people": self.data2person,
-                        }[result_type](result)
-
-    async def search(
-        self, sort_by_match: bool = False, **kwargs: Unpack[SearchArguments]
-    ) -> List[Anime | Manga | Character | Person]:
-        results = [item async for item in self.search_generator(**kwargs)]
-        if kwargs.get("searchType", "animes") == "autocomplete" and kwargs.get("search", None):
-            if results:
-                search_query = kwargs.get("search", None)
-                if search_query and sort_by_match:
-                    results.sort(
-                        key=lambda item: SequenceMatcher(
-                            None,
-                            search_query.lower(),
-                            (
-                                item.title.get(_BaseItem.Language.ROMAJI, [None])[0]
-                                or item.title.get(_BaseItem.Language.ENGLISH, [None])[0]
-                                or item.name.get(_BaseItem.Language.ROMAJI, [None])[0]
-                                or item.name.get(_BaseItem.Language.ENGLISH, [None])[0]
-                            ).lower(),
-                        ).ratio(),
-                        reverse=True,
-                    )
-        return results[0] if len(results) == 1 else results
-
-    async def get_info_generator(
-        self,
-        item_type: Literal["animes", "mangas", "characters", "people"]
-        | List[Literal["animes", "mangas", "characters", "people"]],
-        item_id: int | str,
-    ) -> AsyncGenerator[
-        Anime | Manga | Character | Person | List[Anime | Manga | Character | Person],
-        None,
-    ]:
-        async for result in self.search_generator(
-            ids=item_id,
-            searchType=item_type,
-            limit=str(item_id).count(",") if str(item_id).count(",") > 0 else 1,
-        ):
-            yield result
-
-    async def get_info(
-        self,
-        item_type: Literal["animes", "mangas", "characters", "people"]
-        | List[Literal["animes", "mangas", "characters", "people"]],
-        item_id: int | str,
-        item: Anime | Manga | Character | Person = None,
-    ) -> List[Anime | Manga | Character | Person] | Anime | Manga | Character | Person:
-        results = []
-        async for result in self.get_info_generator(item_type, item_id):
-            results += [result]
-        if len(results) == 1:
-            if item and isinstance(item, type(results[0])):
-                item.__dict__ == results[0].__dict__
-        return results[0] if len(results) == 1 else results

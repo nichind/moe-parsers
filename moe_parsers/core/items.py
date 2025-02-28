@@ -1,4 +1,4 @@
-from typing import List, TypedDict, Unpack, Literal, Dict, Self
+from typing import List, Literal, Dict
 from .adapter import _Client
 from .parser import _Parser
 from enum import Enum
@@ -7,7 +7,7 @@ from datetime import datetime
 
 class XEnum(Enum):
     replaces: Dict[str, List[str] | str]
-    
+
     @classmethod
     def values(cls) -> List:
         return [value.value for key, value in cls.__dict__.items() if not key.startswith("_")]

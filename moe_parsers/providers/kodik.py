@@ -3,7 +3,7 @@ from ..core.items import _BaseItem
 from typing import Unpack, AsyncGenerator, Literal, TypedDict, List
 
 
-class KodikParser(Parser):
+class Kodik(Parser):
     def __init__(self, **kwargs: Unpack[Parser.ParserParams]):
         self.language = Parser.Language.RU
         self.token = None
