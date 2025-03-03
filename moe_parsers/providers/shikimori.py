@@ -285,7 +285,7 @@ class Shikimori(Parser):
 
     async def autocomplete_generator(
         self, **kwargs: Unpack["SearchArguments"]
-    ) -> AsyncGenerator[Anime | Manga | Character | Person, None]: 
+    ) -> AsyncGenerator[Anime | Manga | Character | Person, None]:
         yield _BaseItem()
 
     async def get_info_generator(

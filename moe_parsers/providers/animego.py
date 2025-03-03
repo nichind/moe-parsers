@@ -23,31 +23,9 @@ class Animego(Parser):
         )
         self.client.base_url = "https://animego.me/"
 
-    replace_month = {
-        "янв.": "1",
-        "февр.": "2",
-        "мар.": "3",
-        "апр.": "4",
-        "мая": "5",
-        "июня": "6",
-        "июля": "7",
-        "авг.": "8",
-        "сент.": "9",
-        "окт.": "10",
-        "нояб.": "11",
-        "дек.": "12",
-        "июл.": "7",
-        "июн.": "6",
-        "января": "1",
-        "февраля": "2",
-        "марта": "3",
-        "апреля": "4",
-        "августа": "8",
-        "сентября": "9",
-        "октября": "10",
-        "ноября": "11",
-        "декабря": "12",
-    }
+    @classmethod
+    def data2anime(cls, data: dict) -> Anime:
+        ...
 
     @classmethod
     def string2datetime(cls, string, format="%d %m %Y") -> datetime:
@@ -243,19 +221,15 @@ class Animego(Parser):
                 ...
             anime_data["characters"].append(_)
 
-        # Картинка
         image_block = soup.find("meta", property="og:image")
         anime_data["image"] = image_block["content"] if image_block else None
 
-        # Трейлер
         trailer_block = soup.select_one("div.video-block a")
         anime_data["trailer"] = trailer_block["href"] if trailer_block else None
 
-        # Кадры
         screenshots = soup.select("div.screenshots-block a img")
         anime_data["screenshots"] = [img["src"] for img in screenshots]
 
-        # Тип
         type_block = soup.find("dt", string="Тип")
         if type_block:
             _type = type_block.find_next_sibling("dd").text.strip()
@@ -283,7 +257,6 @@ class Animego(Parser):
                 "url": person.get("url", None),
             }
 
-        # График выхода серий
         anime_data["episodes"] = await self.get_episodes(url)
         if not anime_data["episodes"] and anime_data["type"] in [Anime.Type.MOVIE]:
             anime_data["episodes"] = [
@@ -294,14 +267,9 @@ class Animego(Parser):
                     status=Anime.Episode.EpisodeStatus.RELEASED,
                 )
             ]
-
-        anime_data["shikimori_id"] = None
-        anime_data["mal_id"] = None
+            
         anime_data["ids"] = {
             Anime.IDType.ANIMEGO: anime_data["animego_id"],
-            Anime.IDType.MAL: anime_data["mal_id"],
-            Anime.IDType.KINPOISK: None,
-            Anime.IDType.SHIKIMORI: anime_data["shikimori_id"],
         }
         anime = Anime(**anime_data)
         anime.get_id("animego")
@@ -327,11 +295,7 @@ class Animego(Parser):
                     aired=ep_date,
                     status=Anime.Status.ANNOUNCED
                     if ep_status == "анонс"
-                    else (
-                        Anime.Status.RELEASED
-                        if ep_status == "вышел"
-                        else Anime.Status.UNKNOWN
-                    ),
+                    else (Anime.Status.RELEASED if ep_status == "вышел" else Anime.Status.UNKNOWN),
                     id=int(ep_id) if not ep_status == "анонс" else None,
                 )
             )
@@ -347,3 +311,29 @@ class Animego(Parser):
             except ValueError:
                 episodes[i].aired = None
         return episodes
+
+    replace_month = {
+        "янв.": "1",
+        "февр.": "2",
+        "мар.": "3",
+        "апр.": "4",
+        "мая": "5",
+        "июня": "6",
+        "июля": "7",
+        "авг.": "8",
+        "сент.": "9",
+        "окт.": "10",
+        "нояб.": "11",
+        "дек.": "12",
+        "июл.": "7",
+        "июн.": "6",
+        "января": "1",
+        "февраля": "2",
+        "марта": "3",
+        "апреля": "4",
+        "августа": "8",
+        "сентября": "9",
+        "октября": "10",
+        "ноября": "11",
+        "декабря": "12",
+    }
