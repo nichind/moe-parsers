@@ -179,6 +179,7 @@ class Anime(_BaseItem):
         MUSIC = "music"
         TV_SPECIAL = "tv_special"
         SPECIAL = "special"
+        PV = "pv"
         UNKNOWN = "unknown"
 
     class Status(XEnum):

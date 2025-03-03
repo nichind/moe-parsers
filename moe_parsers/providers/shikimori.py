@@ -49,7 +49,7 @@ class Shikimori(Parser):
             rom = katsu.romaji(title).title()
             if rom in anime.title[_BaseItem.Language.ENGLISH]:
                 continue
-            if rom and rom != "?" * len(rom) and rom not in anime.title[_BaseItem.Language.ROMAJI]:
+            if rom and len(rom.strip()) // 2 > rom.count("?") and rom not in anime.title[_BaseItem.Language.ROMAJI]:
                 anime.title[_BaseItem.Language.ROMAJI].append(rom)
         anime.thumbnail = data.get("poster", {}).get("mainUrl")
         anime.type = data.get("kind", "unknown")
@@ -121,7 +121,7 @@ class Shikimori(Parser):
             rom = katsu.romaji(title).title()
             if rom in manga.title[_BaseItem.Language.ENGLISH]:
                 continue
-            if rom and rom != "?" * len(rom) and rom not in manga.title[_BaseItem.Language.ROMAJI]:
+            if rom and len(rom.strip()) // 2 > rom.count("?") and rom not in manga.title[_BaseItem.Language.ROMAJI]:
                 manga.title[_BaseItem.Language.ROMAJI].append(rom)
         manga.thumbnail = data.get("poster", {}).get("mainUrl")
         manga.type = data.get("kind", "unknown")
@@ -209,8 +209,9 @@ class Shikimori(Parser):
         }
         character.url = data.get("url", "")
         return character
+
     async def search_generator(
-        self, **kwargs: Unpack["SearchArguments"]
+        self, *args, **kwargs: Unpack["SearchArguments"]
     ) -> AsyncGenerator[Anime | Manga | Character | Person, None]:
         start_page = kwargs.get("startPage", 1)
         end_page = kwargs.get("endPage", start_page)
@@ -223,35 +224,41 @@ class Shikimori(Parser):
             search_types = [search_types]
         if "searchType" in kwargs:
             del kwargs["searchType"]
+        if not kwargs.get("search", None) and len(args) == 1 and isinstance(args[0], str):
+            kwargs["search"] = args[0]
         for page in range(start_page, end_page + 1):
             kwargs["page"] = page
             for path in search_types:
-                response = await self.client.post(
-                    url=self.client.base_url + "api/graphql",
-                    page=page,
-                    json={
-                        "operationName": None,
-                        "variables": {},
-                        "query": self.graphql_query.get(path).replace(
-                            "{params}",
-                            ", ".join(
-                                f'{key}: "{",".join(value) if isinstance(value, list) else value}"'
-                                if not isinstance(value, (int, float)) and key not in ["order"]
-                                else f"{key}: {value}"
-                                for key, value in kwargs.items()
-                                if key not in ["startPage", "endPage"]
+                if path == "autocomplete":
+                    async for item in self.autocomplete_generator(**kwargs):
+                        yield item
+                else:
+                    response = await self.client.post(
+                        url=self.client.base_url + "api/graphql",
+                        page=page,
+                        json={
+                            "operationName": None,
+                            "variables": {},
+                            "query": self.graphql_query.get(path).replace(
+                                "{params}",
+                                ", ".join(
+                                    f'{key}: "{",".join(value) if isinstance(value, list) else value}"'
+                                    if not isinstance(value, (int, float)) and key not in ["order"]
+                                    else f"{key}: {value}"
+                                    for key, value in kwargs.items()
+                                    if key not in ["startPage", "endPage"]
+                                ),
                             ),
-                        ),
-                    },
-                )
-                for result_type, results in response.json.get("data", {}).items():
-                    for result in results:
-                        yield {
-                            "animes": self.data2anime,
-                            "mangas": self.data2manga,
-                            "characters": self.data2character,
-                            "people": self.data2person,
-                        }[result_type](result)
+                        },
+                    )
+                    for result_type, results in response.json.get("data", {}).items():
+                        for result in results:
+                            yield {
+                                "animes": self.data2anime,
+                                "mangas": self.data2manga,
+                                "characters": self.data2character,
+                                "people": self.data2person,
+                            }[result_type](result)
 
     async def search(
         self, sort_by_match: bool = False, **kwargs: Unpack["SearchArguments"]
@@ -275,6 +282,11 @@ class Shikimori(Parser):
                         reverse=True,
                     )
         return results[0] if len(results) == 1 else results
+
+    async def autocomplete_generator(
+        self, **kwargs: Unpack["SearchArguments"]
+    ) -> AsyncGenerator[Anime | Manga | Character | Person, None]: 
+        yield _BaseItem()
 
     async def get_info_generator(
         self,

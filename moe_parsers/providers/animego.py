@@ -17,11 +17,11 @@ class Animego(Parser):
             {
                 "Accept": "application/json, text/javascript, */*; q=0.01",
                 "X-Requested-With": "XMLHttpRequest",
-                "Referer": "https://animego.org/",
+                "Referer": "https://animego.me/",
                 "Sec-Fetch-Site": "same-origin",
             }
         )
-        self.client.base_url = "https://animego.org/"
+        self.client.base_url = "https://animego.me/"
 
     replace_month = {
         "янв.": "1",
@@ -272,7 +272,7 @@ class Animego(Parser):
             )
 
         anime_data["status"] = (
-            Anime.Status.COMPLETED
+            Anime.Status.RELEASED
             if anime_data["completed"]
             else (Anime.Status.ONGOING if anime_data["started"] else Anime.Status.UNKNOWN)
         )
@@ -325,12 +325,12 @@ class Animego(Parser):
                     number=num,
                     title=ep_title,
                     aired=ep_date,
-                    status=Anime.Episode.EpisodeStatus.ANNOUNCED
+                    status=Anime.Status.ANNOUNCED
                     if ep_status == "анонс"
                     else (
-                        Anime.Episode.EpisodeStatus.RELEASED
+                        Anime.Status.RELEASED
                         if ep_status == "вышел"
-                        else Anime.Episode.EpisodeStatus.UNKNOWN
+                        else Anime.Status.UNKNOWN
                     ),
                     id=int(ep_id) if not ep_status == "анонс" else None,
                 )

@@ -137,7 +137,7 @@ class _ClientParams(TypedDict, total=False):
     headers: _ClientHeaders
     max_retries: int
     base_url: str
-    proxies: "ProxySwithcher" | List[Proxy | str]
+    proxy: "ProxySwithcher" | List[Proxy | str]
     debug: bool
 
 
@@ -189,8 +189,8 @@ class _Client:
     def __init__(self, **params: Unpack[_ClientParams]):
         self.switcher = ProxySwithcher()
         self.__dict__.update(**params)
-        if "proxies" in params and isinstance(params["proxies"], list):
-            for proxy in params["proxies"]:
+        if "proxy" in params and isinstance(params["proxy"], list):
+            for proxy in params["proxy"]:
                 run(self.switcher.checkadd(proxy))
 
     class Exceptions:
@@ -248,6 +248,8 @@ class _Client:
             proxy.last_used = datetime.now()
             proxy.use_count += 1
             proxy = proxy.url
+        if proxy and self._my("debug", False):
+            print(f"Using proxy: {proxy}")
         async with session.request(
             method=kwargs.get("method", "get"),
             url=kwargs.get("url"),
