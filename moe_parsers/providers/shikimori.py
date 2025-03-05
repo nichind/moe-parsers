@@ -286,7 +286,14 @@ class Shikimori(Parser):
     async def autocomplete_generator(
         self, **kwargs: Unpack["SearchArguments"]
     ) -> AsyncGenerator[Anime | Manga | Character | Person, None]:
-        yield _BaseItem()
+        soup = self.client.soup(await self.client.get())
+
+
+    async def autocomplete(
+        self, **kwargs: Unpack["SearchArguments"]
+    ) -> List[Anime | Manga | Character | Person]:
+        results = [item async for item in self.autocomplete_generator(**kwargs)]
+        return results
 
     async def get_info_generator(
         self,

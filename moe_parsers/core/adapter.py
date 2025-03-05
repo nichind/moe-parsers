@@ -181,8 +181,9 @@ class RequestResponse:
     def __repr__(self):
         return f"<Response [{self.status}] ({len(self.text)}, {len(self.json) if self.json else 0})>"
 
-    def json(self):
-        return self.__dict__.get("json", None)
+    @property
+    def encoded(self):
+        return str(self.text).encode("utf-8")
 
 
 class _Client:
@@ -269,7 +270,7 @@ class _Client:
                 _response=response,
             )
         if self._my("debug", False):
-            print(response, response.text, sep="\n")
+            print(response, response.encoded, sep="\n")
         if self.switcher.get_by_url(proxy):
             self.switcher.get_by_url(proxy).latency = int(
                 (datetime.now() - self.switcher.get_by_url(proxy).last_used).total_seconds() * 1000

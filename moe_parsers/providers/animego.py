@@ -1,5 +1,5 @@
 from ..core.parser import Parser
-from ..core.items import _BaseItem, Anime
+from ..core.items import _BaseItem, Anime, Manga, Character, Person, Translation
 from typing import Unpack, AsyncGenerator, List
 from datetime import datetime
 from cutlet import Cutlet
@@ -24,8 +24,7 @@ class Animego(Parser):
         self.client.base_url = "https://animego.me/"
 
     @classmethod
-    def data2anime(cls, data: dict) -> Anime:
-        ...
+    def data2anime(cls, data: dict) -> Anime: ...
 
     @classmethod
     def string2datetime(cls, string, format="%d %m %Y") -> datetime:
@@ -267,7 +266,7 @@ class Animego(Parser):
                     status=Anime.Episode.EpisodeStatus.RELEASED,
                 )
             ]
-            
+
         anime_data["ids"] = {
             Anime.IDType.ANIMEGO: anime_data["animego_id"],
         }
@@ -311,6 +310,46 @@ class Animego(Parser):
             except ValueError:
                 episodes[i].aired = None
         return episodes
+
+    async def get_translations(self, url_or_id: str) -> List[Anime]:
+        response = await self.client.get(f"anime/{url_or_id}/player", params={"_allow": 1})
+        
+        soup = self.client.soup(response.json.get("content"))
+
+        if soup.find("div", {"class": "player-blocked"}):
+            reason_elem = soup.find("div", {"class": "h5"})
+            reason = reason_elem.text if reason_elem else None
+            print(reason)
+
+        try:
+            translations_elem = soup.find("div", {"id": "video-dubbing"}).find_all(
+                "span", {"class": "video-player-toggle-item"}
+            )
+            dubs = {}
+            for translation in translations_elem:
+                dubbing = translation.get_attribute_list("data-dubbing")[0]
+                name = translation.text.strip()
+                dubs[dubbing] = name
+
+            translations = []
+            added = []
+            players_elem = soup.find("div", {"id": "video-players"}).find_all(
+                "span", {"class": "video-player-toggle-item"}
+            )
+            for player in players_elem:
+                dubbing = player.get_attribute_list("data-provide-dubbing")[0]
+                translation_id = player.get_attribute_list("data-player")[0]
+                translation_id = translation_id[translation_id.rfind("=") + 1 :]
+                if dubs[dubbing] in added:
+                    continue
+                added += [dubs[dubbing]]
+                translations += [{"name": dubs[dubbing], "translation_id": dubbing}]
+
+        except Exception as exc:
+            print(exc)
+
+        return translations
+
 
     replace_month = {
         "янв.": "1",

@@ -46,6 +46,7 @@ class _BaseItem:
         PERSON = "person"
         OTHER = "other"
         EPISODE = "episode"
+        TRANSLATION = "translation"
 
     class IDType(XEnum):
         MAL = "mal"
@@ -168,6 +169,19 @@ class _BaseItem:
         >>>     print(i)  # Will print the item, close the loop
         """
         yield self
+
+
+class Translation(_BaseItem):
+    class Type(XEnum):
+        SUB = "sub"
+        DUB = "dub"
+        TEXT = "text"
+
+    item_type = _BaseItem.ItemType.TRANSLATION
+    type: Type
+    language: _BaseItem.Language
+    name: str
+    translation_id: int | str
 
 
 class Anime(_BaseItem):
@@ -373,6 +387,7 @@ class Character(_BaseItem):
     ids: Dict[_BaseItem.IDType, str | int]
     name: Dict[_BaseItem.Language, List[str] | str]
     description: Dict[_BaseItem.Language, List[str] | str]
+    cast_in: List[Anime | Manga | Dict[_BaseItem.ItemType, Dict[_BaseItem.IDType, str | int]]]
     url: str
 
 
@@ -389,6 +404,7 @@ class Person(_BaseItem):
 
     item_type = _BaseItem.ItemType.PERSON
     type: Type
+    ids: Dict[_BaseItem.IDType, str | int]
     name: Dict[_BaseItem.Language, List[str] | str]
     birthdate: datetime
     passingdate: datetime
