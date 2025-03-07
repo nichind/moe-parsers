@@ -34,9 +34,9 @@ class Proxy:
         elif args:
             self.ip = args[0]
             self.port = args[1]
-            self.protocol = args[2] if len(args) > 2 else kwargs.get("protocol", "http")
-            self.username = args[3] if len(args) > 3 else kwargs.get("username", None)
-            self.password = args[4] if len(args) > 4 else kwargs.get("password", None)
+            self.protocol = args[4] if len(args) > 4 else kwargs.get("protocol", "http")
+            self.username = args[2] if len(args) > 2 else kwargs.get("username", None)
+            self.password = args[3] if len(args) > 3 else kwargs.get("password", None)
         self.__dict__.update(**kwargs)
 
     @property
@@ -139,6 +139,8 @@ class _ClientParams(TypedDict, total=False):
     base_url: str
     proxy: "ProxySwithcher" | List[Proxy | str]
     debug: bool
+    cache: dict
+    cache_lifetime: int
 
 
 class RequestArgs(TypedDict, total=False):
@@ -176,14 +178,11 @@ class RequestResponse:
             self.json = loads(self.text)
         except ValueError:
             self.json = None
+        self.text = str(self.text).encode("utf-8", "replace").decode("unicode_escape")
         self.soup = BeautifulSoup(self.text, features="html.parser")
 
     def __repr__(self):
         return f"<Response [{self.status}] ({len(self.text)}, {len(self.json) if self.json else 0})>"
-
-    @property
-    def encoded(self):
-        return str(self.text).encode("utf-8")
 
 
 class _Client:
@@ -270,7 +269,7 @@ class _Client:
                 _response=response,
             )
         if self._my("debug", False):
-            print(response, response.encoded, sep="\n")
+            print(response, response.text, sep="\n")
         if self.switcher.get_by_url(proxy):
             self.switcher.get_by_url(proxy).latency = int(
                 (datetime.now() - self.switcher.get_by_url(proxy).last_used).total_seconds() * 1000
